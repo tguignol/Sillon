@@ -34,9 +34,18 @@ struct JellyfinNameId: Decodable, Sendable {
 
 struct JellyfinMediaStream: Decodable, Sendable {
     /// "Audio", "Video", "Subtitle"... — on ne garde que les flux de type "Audio".
-    let Type: String?
+    /// Nommé `StreamType` plutôt que `Type` : Swift interdit un membre littéralement appelé
+    /// `Type` (conflit avec la syntaxe de métatype `SomeType.Type`). On conserve le mapping
+    /// vers la clé JSON réelle ("Type") via `CodingKeys`.
+    let StreamType: String?
     let Codec: String?
     let BitRate: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case StreamType = "Type"
+        case Codec
+        case BitRate
+    }
 }
 
 struct JellyfinImageTags: Decodable, Sendable {
@@ -60,11 +69,11 @@ struct JellyfinBaseItem: Decodable, Sendable {
     let ImageTags: JellyfinImageTags?
 
     var audioCodec: String? {
-        MediaStreams?.first(where: { $0.Type == "Audio" })?.Codec
+        MediaStreams?.first(where: { $0.StreamType == "Audio" })?.Codec
     }
 
     var audioBitRate: Int? {
-        MediaStreams?.first(where: { $0.Type == "Audio" })?.BitRate
+        MediaStreams?.first(where: { $0.StreamType == "Audio" })?.BitRate
     }
 
     var durationSeconds: Double {
