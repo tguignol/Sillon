@@ -1,0 +1,16 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+.DS_Store
+
+# Fichiers générés par SwiftPM si jamais utilisés
+.build/
+.swiftpm/
+
+# Ne jamais committer de secrets (au cas où un script local en générerait)
+*.pem
+*.p12
+.gh_token
