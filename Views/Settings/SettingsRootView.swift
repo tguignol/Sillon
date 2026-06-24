@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// Racine de l'onglet Réglages. Les sections Égaliseur et préférences générales seront ajoutées
 /// aux commits "Lecteur + Égaliseur" et suivants — ce commit n'introduit que la gestion des serveurs.
