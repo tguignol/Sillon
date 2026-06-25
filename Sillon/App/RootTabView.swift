@@ -10,6 +10,8 @@ import SwiftData
 /// décision différée, la `TabView` reste cohérente entre plateformes pour l'instant.
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.playerController) private var playerController
+    @State private var showPlayer = false
 
     var body: some View {
         TabView {
@@ -29,6 +31,16 @@ struct RootTabView: View {
                 SettingsRootView()
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            if playerController?.currentTrack != nil {
+                NowPlayingBar { showPlayer = true }
+            }
+        }
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showPlayer) { PlayerView() }
+        #else
+        .sheet(isPresented: $showPlayer) { PlayerView().frame(minWidth: 360, minHeight: 600) }
+        #endif
         #if DEBUG
         .task { await DebugBootstrap.runIfRequested(context: modelContext) }
         #endif

@@ -34,10 +34,14 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
   **Validé sur iOS 26.5** : album Navidrome (11 titres M4A 1411 kbps, ~295 Mo) téléchargé de bout en
   bout, fichiers écrits dans l'arborescence serveur, état reflété dans l'UI (cf. Docs/DECISIONS.md #24-26).
 
-- [ ] **Commit 5 — Lecteur + Égaliseur**
-  Moteur AVAudioEngine/AVAudioUnitEQ, écran lecteur (cover plein écran, barre de progression avec
-  -10s/+10s, cœur favori, sélecteur de sortie audio AirPlay/Bluetooth), écran Réglages EQ
-  (6-12 bandes, sliders libres, sauvegarde du dernier état).
+- [x] **Commit 5 — Lecteur + Égaliseur** *(celui-ci)*
+  Moteur `AVAudioEngine` (`player → AVAudioUnitEQ → mixer`), `PlayerController` (file de lecture,
+  transport, temps courant, offline-first), écran lecteur plein écran (pochette + *groove ring*
+  signature, barre de progression avec -10s/+10s, cœur favori, sélecteur AirPlay), mini-lecteur
+  ancré, écran Égaliseur (6-12 bandes log, sliders libres, activation, sauvegarde du singleton
+  `EQSettings`, application en direct).
+  **Validé sur iOS 26.5** : lecture **offline** d'un titre M4A téléchargé (temps qui avance, groove
+  ring), changement de bandes EQ en direct (cf. Docs/DECISIONS.md #27-28).
 
 - [ ] **Commit 6 — Favoris + Playlists**
   Toggle cœur partout, écran Favoris + "Mixer les favoris", CRUD playlists + réordonnancement

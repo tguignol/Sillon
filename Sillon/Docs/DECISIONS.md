@@ -179,3 +179,20 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     Sur iOS, un `UIApplicationDelegateAdaptor` route le completion handler du réveil en arrière-plan.
     La lecture offline-first est préparée via `DownloadManager.localURL(for:)` (le lecteur du commit 5
     s'en servira en priorité avant de streamer).
+
+## Commit 5 — Lecteur + Égaliseur
+
+27. **Lecture via `AVAudioFile` (local) ; streaming = récupération-puis-lecture en Phase 1.** L'EQ
+    exigé (`AVAudioUnitEQ`) impose la chaîne `AVAudioEngine` (`player → EQ → mixer`), qui lit des
+    `AVAudioFile` **locaux**. Un morceau téléchargé est donc lu directement (offline-first, avec EQ) ;
+    un morceau **non téléchargé** est d'abord récupéré en entier (sans transcodage : `stream?format=raw`
+    / `static=true`) dans un cache temporaire, puis lu — d'où une latence au démarrage. Le vrai
+    streaming réseau *gapless* avec EQ (buffers progressifs) est un raffinement de Phase 2, signalé
+    plutôt qu'improvisé. Validé en lecture offline réelle sur iOS 26 (titre M4A 1411 kbps téléchargé).
+
+28. **Égaliseur : singleton persistant appliqué en direct.** Conformément à la décision #4 (un seul
+    état EQ, pas de presets nommés), l'écran Égaliseur édite l'unique `EQSettings` (6-12 bandes
+    log-réparties 32 Hz–16 kHz, gains -12…+12 dB, activation). Chaque changement est sauvegardé et
+    réappliqué au moteur en direct ; changer le nombre de bandes recrée l'`AVAudioUnitEQ` et le
+    reconnecte dans le graphe sans interrompre la lecture (vérifié sur iOS 26). Lecture en arrière-plan
+    activée (`UIBackgroundModes: audio`, `AVAudioSession` en catégorie `.playback`).

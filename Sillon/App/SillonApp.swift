@@ -12,7 +12,9 @@ struct SillonApp: App {
     init() {
         let container = SillonSchema.makeContainer()
         modelContainer = container
-        _downloadManager = State(initialValue: DownloadManager(container: container))
+        let downloads = DownloadManager(container: container)
+        _downloadManager = State(initialValue: downloads)
+        _playerController = State(initialValue: PlayerController(container: container, downloadManager: downloads))
     }
 
     /// Loader de pochettes partagé par toute l'app (cache des providers authentifiés + des URLs résolues).
@@ -21,11 +23,15 @@ struct SillonApp: App {
     /// Gestionnaire de téléchargements partagé (session URLSession de fond).
     @State private var downloadManager: DownloadManager
 
+    /// Contrôleur de lecture audio partagé (moteur AVAudioEngine + EQ).
+    @State private var playerController: PlayerController
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
                 .environment(\.artworkLoader, artworkLoader)
                 .environment(\.downloadManager, downloadManager)
+                .environment(\.playerController, playerController)
                 // Le système de design est sombre par nature (cf. Docs/DESIGN_SYSTEM.md : fond noir,
                 // texte ivoire, accents cuivre/teal). On impose donc l'apparence sombre de l'app
                 // (uniquement l'app — pas le réglage clair/sombre du système).

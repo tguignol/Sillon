@@ -17,6 +17,11 @@ struct SettingsRootView: View {
                 } label: {
                     Label("Téléchargements", systemImage: "arrow.down.circle")
                 }
+                NavigationLink {
+                    EQView()
+                } label: {
+                    Label("Égaliseur", systemImage: "slider.vertical.3")
+                }
             }
             .navigationTitle("Réglages")
         }

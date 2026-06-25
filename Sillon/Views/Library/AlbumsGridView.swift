@@ -33,6 +33,7 @@ struct AlbumsGridView: View {
 struct AlbumDetailView: View {
     let album: Album
     @Environment(\.downloadManager) private var downloadManager
+    @Environment(\.playerController) private var playerController
 
     private var orderedTracks: [Track] {
         album.tracks.sorted {
@@ -50,8 +51,10 @@ struct AlbumDetailView: View {
                     .padding(.vertical, Spacing.s)
             }
             Section {
-                ForEach(orderedTracks) { track in
+                ForEach(Array(orderedTracks.enumerated()), id: \.element.id) { index, track in
                     TrackRowView(track: track, showsTrackNumber: true)
+                        .contentShape(Rectangle())
+                        .onTapGesture { playerController?.play(queue: orderedTracks, startAt: index) }
                 }
             }
         }

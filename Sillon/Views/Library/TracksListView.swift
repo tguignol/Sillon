@@ -5,13 +5,16 @@ import SwiftData
 /// numéro de piste (liste hétérogène, contrairement au détail d'album).
 struct TracksListView: View {
     @Query(sort: \Track.title) private var tracks: [Track]
+    @Environment(\.playerController) private var playerController
 
     var body: some View {
         if tracks.isEmpty {
             LibraryEmptyState(title: "Aucun titre", systemImage: "music.note")
         } else {
-            List(tracks) { track in
+            List(Array(tracks.enumerated()), id: \.element.id) { index, track in
                 TrackRowView(track: track, showsTrackNumber: false)
+                    .contentShape(Rectangle())
+                    .onTapGesture { playerController?.play(queue: tracks, startAt: index) }
             }
             .listStyle(.plain)
         }
