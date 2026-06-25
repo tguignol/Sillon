@@ -32,8 +32,19 @@ struct ServerRowView: View {
         case .idle:
             Button("Synchroniser", action: onSyncTapped)
                 .buttonStyle(.bordered)
-        case .syncing:
-            ProgressView()
+        case .syncing(let progress):
+            VStack(alignment: .trailing, spacing: 4) {
+                if progress.total > 0 {
+                    ProgressView(value: progress.fraction)
+                        .progressViewStyle(.linear)
+                        .frame(width: 90)
+                } else {
+                    ProgressView()
+                }
+                Text(Self.label(for: progress))
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
         case .failed(let message):
             Button(action: onSyncTapped) {
                 Label("Réessayer", systemImage: "exclamationmark.triangle.fill")
@@ -41,6 +52,17 @@ struct ServerRowView: View {
             .buttonStyle(.bordered)
             .tint(.red)
             .help(message)
+        }
+    }
+
+    private static func label(for progress: LibrarySyncService.Progress) -> String {
+        switch progress.phase {
+        case .authenticating: return "Connexion…"
+        case .fetchingLibrary: return "Analyse complète…"
+        case .fetchingDelta: return "Mise à jour…"
+        case .applying:
+            return progress.total > 0 ? "\(progress.processed)/\(progress.total)" : "Écriture…"
+        case .done: return "Terminé"
         }
     }
 
@@ -61,7 +83,7 @@ struct ServerRowView: View {
         )
         ServerRowView(
             server: ServerAccount(name: "Navidrome maison", type: .subsonic, baseURLString: "https://exemple.local", username: "alex"),
-            syncState: .syncing,
+            syncState: .syncing(.init(phase: .applying, processed: 120, total: 480)),
             onSyncTapped: {}
         )
         ServerRowView(

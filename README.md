@@ -1,88 +1,70 @@
-# Sillon — Commit 2/7 de la Phase 1
+# Sillon — Commit 3/7 de la Phase 1
 
 App de lecture musicale connectée à des serveurs personnels (Jellyfin, Navidrome/Subsonic,
 fichiers locaux), SwiftUI multiplateforme (iOS 26 / macOS Tahoe), target unique.
 
-Ce commit ajoute la **gestion des serveurs** et les **trois providers réseau** par-dessus les
-fondations du commit 1 (toujours présentes). Voir `Docs/ROADMAP.md` pour la suite.
+Ce commit ajoute le **moteur de synchronisation** et la **bibliothèque réelle** (écrans Accueil +
+Bibliothèque) par-dessus les fondations des commits 1 et 2 (toujours présentes).
+Voir `Sillon/Docs/ROADMAP.md` pour la suite.
 
 ## Contenu ajouté par ce commit
 
 ```
-Networking/
-  ServerProviderFactory.swift     → instancie le bon provider selon ServerAccount.type
-  Jellyfin/JellyfinModels.swift   → DTOs (BaseItemDto, AuthenticationResult...)
-  Jellyfin/JellyfinProvider.swift → authenticate, fetchLibrary, syncDelta, streamURL...
-  Subsonic/SubsonicModels.swift   → DTOs (enveloppe subsonic-response...)
-  Subsonic/SubsonicProvider.swift → idem, pour Navidrome/Subsonic
-  Local/LocalFilesProvider.swift  → scan de dossier + métadonnées AVFoundation
-Views/Servers/
-  ServerListView.swift            → liste des serveurs, bouton Synchroniser
-  ServerRowView.swift
-  AddServerView.swift             → formulaire d'ajout, masques distincts par type
-Views/Settings/
-  SettingsRootView.swift          → racine de l'onglet Réglages (-> Serveurs)
-ViewModels/
-  ServerListViewModel.swift
-  AddServerViewModel.swift
+DesignSystem/
+  Theme.swift                     → palette / typo / espacement (concrétise Docs/DESIGN_SYSTEM.md)
+Sync/
+  LibrarySyncService.swift        → moteur full/delta : upsert SwiftData, horodatage + curseur, progression
+Views/Home/
+  HomeView.swift                  → accueil "disquaire" : sections horizontales à tailles inégales
+Views/Library/
+  LibraryRootView.swift           → sélecteur Artistes / Albums / Titres / Playlists
+  ArtistsListView.swift           → liste artistes + détail (albums en grille)
+  AlbumsGridView.swift            → grille albums + détail (liste des morceaux)
+  TracksListView.swift            → liste à plat de tous les titres
+  PlaylistsListView.swift         → playlists locales (création au commit 6)
+Views/Shared/
+  CoverArtView.swift              → pochette : artwork réel + fallback placeholder cuivré
+  ArtworkLoader.swift             → résolution/cache des URLs de pochette (providers authentifiés)
+  AlbumCard.swift, TrackRowView.swift, Formatters.swift, PreviewData.swift
 ```
 
-**Important** : ce commit ne fait pas encore apparaître de vraie bibliothèque musicale dans
-l'onglet Bibliothèque. Le bouton "Synchroniser" authentifie réellement le serveur et récupère
-sa bibliothèque, mais ne persiste pas encore le résultat en SwiftData — c'est le rôle du moteur
-de synchronisation, prévu au commit suivant. Voir `Docs/DECISIONS.md` (#13) pour le détail.
+Modifiés : `ViewModels/ServerListViewModel.swift` (pilote le moteur de sync), `Views/Servers/
+ServerRowView.swift` (barre de progression réelle), `App/RootTabView.swift` (Accueil + Bibliothèque
+câblés), `App/SillonApp.swift` (injection de l'`ArtworkLoader`).
 
-## Limitation importante à connaître avant de continuer
+**Désormais, "Synchroniser" persiste réellement la bibliothèque** : artistes, albums et morceaux
+apparaissent dans les onglets Accueil et Bibliothèque après une synchro réussie (cf. `Docs/DECISIONS.md`
+#14 à #19 pour les choix de ce commit). Les *favoris* sont affichés en lecture seule ; leur toggle
+et l'écran Favoris dédié arrivent au commit 6.
 
-Je travaille dans un environnement Linux sans Xcode ni toolchain Swift : **je ne peux pas
-compiler, lancer, ni générer de Previews moi-même**. Le code a été écrit avec soin et vérifié
-contre la documentation officielle (notamment les endpoints Jellyfin/Subsonic, confirmés par
-recherche plutôt qu'inventés), mais la première compilation réelle se fera dans votre Xcode.
-**Si vous rencontrez une erreur de build, copiez-collez le message d'erreur ici** — je corrige
-immédiatement plutôt que de deviner.
+## Compilation vérifiée
 
-## Ce dépôt ne contient pas (encore) de fichier de projet Xcode
+Ce commit a été compilé avec succès sur les deux plateformes (Xcode 26 / SDK iOS 26.5 et macOS 26.5) :
 
-Volontairement : un fichier `.xcodeproj` est un format propre à Xcode, fragile à produire sans
-Xcode lui-même, donc je ne le fabrique pas à la main. Ce dépôt contient les **fichiers source
-Swift et la documentation** — la création du projet Xcode autour de ces fichiers se fait une
-fois, en local, en suivant la procédure ci-dessous.
+```
+xcodebuild build -scheme Sillon -destination 'platform=macOS'
+xcodebuild build -scheme Sillon -destination 'generic/platform=iOS Simulator'
+```
 
-## Démarrer depuis ce dépôt GitHub (nouvelle procédure)
+Note : un `AppIcon.appiconset` vide (placeholder, sans visuel) a été ajouté pour débloquer le build
+iOS — le projet le réclamait sans le fournir (cf. `Docs/DECISIONS.md` #19). Une vraie icône de marque
+sera proposée à l'étape de polish.
 
-1. **Cloner ce dépôt avec Xcode** : Xcode → écran d'accueil → **Clone an existing project** (ou
-   menu **File ▸ Clone Repository…**) → collez `https://github.com/tguignol/Sillon.git` → choisissez
-   où l'enregistrer sur votre Mac (évitez un dossier synchronisé par iCloud du type "Documents",
-   préférez par exemple un dossier directement sous votre dossier utilisateur, ou `~/Developer/`,
-   pour éviter les soucis de synchronisation qui semblent être à l'origine du problème précédent).
-2. **Créer le projet Xcode à cet endroit précis** : File ▸ New ▸ Project ▸ onglet **Multiplatform**
-   ▸ **App** (Interface SwiftUI, Storage SwiftData) ▸ Product Name `Sillon` ▸ **enregistrez-le
-   dans le dossier que vous venez de cloner** (pas un nouveau dossier ailleurs).
-3. Xcode crée ses fichiers par défaut à côté des fichiers déjà clonés. Supprimez les fichiers
-   générés par défaut (`Item.swift`, contenu par défaut de `ContentView.swift`) — `App/SillonApp.swift`
-   et `App/RootTabView.swift` (déjà présents grâce au clone) les remplacent.
-4. Dans Xcode, clic droit sur le groupe racine du projet → **Add Files to "Sillon"…** → sélectionnez
-   les dossiers déjà présents sur le disque (`Models`, `Networking`, `Security`, `Persistence`,
-   `Views`, `ViewModels`, `App` s'il n'est pas déjà ajouté) → **décochez "Copy items if needed"**
-   cette fois (les fichiers sont déjà au bon endroit, pas besoin d'une copie) → cochez **Create
-   groups** et votre target.
-5. **Cmd + R**.
+## Récupérer ce commit dans Xcode
 
-### Capacités à vérifier (cf. détail plus bas dans ce fichier)
+Le projet `Sillon.xcodeproj` existe et utilise des **groupes synchronisés au système de fichiers**
+(`PBXFileSystemSynchronizedRootGroup`) : les nouveaux fichiers Swift déposés dans les dossiers sont
+repris automatiquement par Xcode, sans manipulation du `.xcodeproj`. Après un `git pull`, ouvrez le
+projet et **Cmd + R**.
+
+### Capacités à vérifier côté projet Xcode
 
 - macOS : Signing & Capabilities ▸ App Sandbox ▸ Network ▸ **Outgoing Connections (Client)**.
 - Si votre serveur Jellyfin/Navidrome est en `http://` : exception App Transport Security
-  (onglet Info de la target ▸ Allow Local Networking = YES).
+  (onglet Info de la target ▸ Allow Local Networking = YES / Allow Arbitrary Loads selon le cas).
 - Bundle Identifier unique, aligné avec `service` dans `Security/KeychainStore.swift`.
-
-## Pour la suite (Commit 3 et après)
-
-Désormais, je pousse directement mes commits sur ce dépôt GitHub (sous forme de pull requests,
-que vous validez avant de les fusionner sur `main`). Une fois une pull request acceptée, vous
-récupérez les nouveaux fichiers dans Xcode via **Source Control ▸ Pull…** — plus besoin de zips
-ni de copier-coller manuel.
 
 ## Et après ?
 
-Dites-moi quand le projet compile chez vous après cette procédure, ou collez-moi le message
-d'erreur exact si quelque chose bloque.
+Le commit 4 (Téléchargements) enchaîne sur cette bibliothèque : `DownloadManager` en arrière-plan,
+reproduction de l'arborescence serveur, lecture offline-first. Voir `Sillon/Docs/ROADMAP.md`.

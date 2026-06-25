@@ -1,22 +1,22 @@
 import SwiftUI
 import SwiftData
 
-/// Squelette de navigation. Accueil/Bibliothèque/Favoris restent des placeholders à ce stade
-/// (commits "Synchronisation + Bibliothèque" et "Favoris + Playlists") ; l'onglet Réglages héberge
-/// déjà la gestion des serveurs (commit "Gestion des serveurs + providers réseau").
+/// Squelette de navigation. Accueil et Bibliothèque sont désormais réels (commit "Synchronisation +
+/// Bibliothèque") ; Favoris reste un placeholder jusqu'au commit "Favoris + Playlists". L'onglet
+/// Réglages héberge la gestion des serveurs (commit "Gestion des serveurs + providers réseau").
 ///
 /// Note multiplateforme : `TabView` fonctionne nativement sur iOS et macOS. Sur macOS/iPadOS,
-/// une navigation par `NavigationSplitView` (sidebar façon Apple Music) sera évaluée à l'étape
-/// "Bibliothèque" — décision différée car elle dépend des vraies données à afficher.
+/// une navigation par `NavigationSplitView` (sidebar façon Apple Music) sera évaluée plus tard —
+/// décision différée, la `TabView` reste cohérente entre plateformes pour l'instant.
 struct RootTabView: View {
     var body: some View {
         TabView {
             Tab("Accueil", systemImage: "house.fill") {
-                PlaceholderScreen(title: "Accueil", systemImage: "house.fill")
+                HomeView()
             }
 
             Tab("Bibliothèque", systemImage: "music.note.list") {
-                PlaceholderScreen(title: "Bibliothèque", systemImage: "music.note.list")
+                LibraryRootView()
             }
 
             Tab("Favoris", systemImage: "heart.fill") {

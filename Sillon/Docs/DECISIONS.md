@@ -83,3 +83,49 @@ décision la plus standard prise et documentée ici (+ en commentaire dans le co
     (preuve de bon fonctionnement de la connexion), mais ne persiste pas encore les résultats en
     SwiftData — c'est le rôle du moteur de synchronisation, prévu au commit suivant
     ("Synchronisation + Bibliothèque").
+
+## Commit 3 — Synchronisation + Bibliothèque
+
+14. **Playlists distantes non importées en Phase 1.** Le modèle `Playlist` est local à l'app
+    (clé `UUID`, pas de `remoteID`), conformément au périmètre de Phase 1 (playlists créées/gérées
+    côté app). Le moteur de synchro **ignore donc** les `RemotePlaylist` renvoyées par les providers :
+    persister des playlists distantes exigerait un champ `remoteID` et une migration de schéma en
+    cours de phase. La création/édition de playlists (CRUD + réordonnancement) reste le commit 6.
+
+15. **Upsert via un index mémoire préfixé, pas une requête par élément.** `LibrarySyncService`
+    charge une seule fois les modèles existants d'un serveur (filtrés par le préfixe `<serverID>:`
+    de leur identifiant composite) dans un `LibraryIndex` en mémoire, puis fait les
+    créations/mises à jour à partir de cet index. Évite une requête SwiftData par artiste/album/
+    morceau. Limite assumée : l'index charge en mémoire les modèles du serveur concerné — acceptable
+    aux volumes de Phase 1 ; une pagination pourra être introduite si nécessaire.
+
+16. **Curseur de synchro amorcé à l'instant présent après un scan complet.** `fetchLibrary()` ne
+    renvoie pas de curseur ; après une 1ʳᵉ synchro complète, on fixe `syncCursor` à l'horodatage
+    ISO8601 courant (format commun aux trois providers, cf. leurs `syncDelta`) pour que la synchro
+    suivante puisse fonctionner en mode delta.
+
+17. **Artwork résolu à l'exécution, pas persisté.** Les URLs de pochette dépendent de l'état
+    d'authentification (Jellyfin embarque `api_key`, Subsonic embarque jeton+sel) : on persiste
+    donc le *chemin* distant (`coverArtRemotePath`) et on résout l'URL chargeable au moment de
+    l'affichage via `ArtworkLoader` (cache des providers authentifiés + des URLs). Les fichiers
+    locaux n'exposent pas de pochette (`coverArtURL` renvoie `nil`) → placeholder cuivré déterministe.
+
+18. **Favoris en lecture seule à ce commit.** Les cœurs sont affichés là où `isFavorite` est vrai
+    (artistes, morceaux, section "Favoris récents"), mais le *toggle* et l'écran Favoris dédié
+    relèvent du commit 6 — on n'anticipe pas l'interaction ici pour respecter le découpage.
+
+19. **Correctif de configuration : `AppIcon` manquant (pré-existant).** Le projet Xcode déclarait
+    `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` sans set d'icône correspondant, ce qui faisait
+    échouer **tout build iOS** (macOS tolère l'absence). Un `AppIcon.appiconset` vide (placeholder,
+    sans visuel) a été ajouté pour rendre le projet compilable sur les deux plateformes. Une vraie
+    icône de marque sera proposée explicitement à l'étape de polish, pas ajoutée silencieusement.
+
+20. **Sauvegarde explicite en fin de synchro (et non via autosave seul).** `LibrarySyncService`
+    appelle `context.save()` à la fin d'une synchro réussie, plutôt que de compter sur l'autosave
+    du `mainContext`. Deux raisons : (a) écrire la bibliothèque durablement et immédiatement après
+    un import en masse ; (b) rendre l'opération vérifiable en test sans dépendre du timing de
+    l'autosave. Note de test associée : un `ModelContainer` in-memory **jetable** dont l'autosave
+    asynchrone se déclenche après coup (contexte en cours de désallocation) fait planter le process
+    de test — artefact propre aux tests (l'app réelle a un container à vie longue, validé sans
+    crash). Les tests désactivent donc l'autosave (`autosaveEnabled = false`). Vérifié par
+    `SillonTests/LibrarySyncServiceTests` (synchro complète + delta) sur SDK macOS 26.5.

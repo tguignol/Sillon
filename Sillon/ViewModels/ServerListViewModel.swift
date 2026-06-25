@@ -1,11 +1,12 @@
 import Foundation
 import SwiftData
 
+@MainActor
 @Observable
 final class ServerListViewModel {
     enum SyncState: Equatable {
         case idle
-        case syncing
+        case syncing(LibrarySyncService.Progress)
         case failed(String)
     }
 
@@ -15,29 +16,19 @@ final class ServerListViewModel {
         syncStates[serverID] ?? .idle
     }
 
-    @MainActor
+    /// Lance la synchronisation réelle : le moteur (`LibrarySyncService`) authentifie, récupère
+    /// la bibliothèque (scan complet la 1ʳᵉ fois, sinon delta) et **persiste** les résultats en
+    /// SwiftData. La progression est remontée en continu pour alimenter la barre de l'UI.
     func synchronize(_ server: ServerAccount, context: ModelContext) async {
-        syncStates[server.id] = .syncing
+        syncStates[server.id] = .syncing(.init(phase: .authenticating))
         do {
-            let provider = try ServerProviderFactory.makeProvider(for: server)
-            _ = try await provider.authenticate()
-
-            // NOTE — périmètre de ce commit : on vérifie ici que la connexion fonctionne réellement
-            // (authentification + premier appel de bibliothèque) et on met à jour les horodatages.
-            // La persistance des résultats (création/mise à jour des Artist/Album/Track SwiftData à
-            // partir de LibrarySnapshot/SyncDelta) est implémentée par le moteur de synchro au commit
-            // suivant ("Synchronisation + Bibliothèque") — ce commit ne fait donc pas encore apparaître
-            // de vrais artistes/albums dans l'onglet Bibliothèque après une synchro réussie.
-            if server.hasCompletedInitialSync {
-                _ = try await provider.syncDelta(since: server.syncCursor)
-            } else {
-                _ = try await provider.fetchLibrary()
-                server.lastFullSyncDate = .now
+            try await LibrarySyncService.synchronize(server, context: context) { progress in
+                self.syncStates[server.id] = .syncing(progress)
             }
-            server.lastDeltaSyncDate = .now
             syncStates[server.id] = .idle
         } catch {
-            syncStates[server.id] = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            syncStates[server.id] = .failed(message)
         }
     }
 }

@@ -15,10 +15,13 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
   persister les résultats — cf. Docs/DECISIONS.md #13) ; formulaire d'ajout avec masques distincts
   par type et test de connexion obligatoire avant sauvegarde.
 
-- [ ] **Commit 3 — Synchronisation + Bibliothèque**
-  Moteur de sync (delta vs full), barre de progression, horodatage ; vues Artistes/Albums/
-  Titres/Playlists ; écran d'accueil avec sections horizontales (Ajouts récents, Favoris récents,
-  Playlists).
+- [x] **Commit 3 — Synchronisation + Bibliothèque** *(celui-ci)*
+  Moteur de sync `LibrarySyncService` (delta vs full, upsert SwiftData par id composite, horodatage
+  + curseur), barre de progression réelle sur l'écran Serveurs ; système de design `Theme.swift`
+  (palette/typo/espacement) ; vues Artistes/Albums/Titres/Playlists (+ détails artiste/album) ;
+  écran d'accueil avec sections horizontales à tailles inégales (Ajouts récents, Favoris récents,
+  Playlists) ; chargement d'artwork réel (`ArtworkLoader`) avec fallback placeholder cuivré.
+  Affichage des favoris en lecture seule (le toggle arrive au commit 6).
 
 - [ ] **Commit 4 — Téléchargements**
   `DownloadManager` (URLSessionDownloadTask en arrière-plan), reproduction de l'arborescence
