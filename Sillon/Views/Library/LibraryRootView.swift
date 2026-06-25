@@ -14,24 +14,36 @@ struct LibraryRootView: View {
     }
 
     @State private var section: Section = .albums
+    @State private var searchText = ""
+
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("Section", selection: $section) {
-                    ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
+            Group {
+                if isSearching {
+                    SearchResultsView(query: searchText)
+                } else {
+                    VStack(spacing: 0) {
+                        Picker("Section", selection: $section) {
+                            ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(Spacing.l)
+
+                        Divider()
+
+                        content
+                    }
                 }
-                .pickerStyle(.segmented)
-                .padding(Spacing.l)
-
-                Divider()
-
-                content
             }
             .navigationTitle("Bibliothèque")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .searchable(text: $searchText, prompt: "Artistes, albums, titres")
         }
     }
 
