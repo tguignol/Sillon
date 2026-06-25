@@ -87,7 +87,7 @@ struct AlbumDetailView: View {
             }
             Section {
                 ForEach(Array(orderedTracks.enumerated()), id: \.element.id) { index, track in
-                    TrackRowView(track: track, showsTrackNumber: true)
+                    TrackRowView(track: track, showsTrackNumber: true, showsMenu: true)
                         .contentShape(Rectangle())
                         .onTapGesture { playerController?.play(queue: orderedTracks, startAt: index) }
                         .trackContextMenu(track: track, context: context)

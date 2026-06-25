@@ -9,6 +9,8 @@ struct TrackRowView: View {
     /// Affiche le numéro de piste à gauche (vrai dans un album), sinon l'artiste (vrai dans une
     /// liste hétérogène comme "Titres").
     var showsTrackNumber: Bool = true
+    /// Affiche un bouton « ⋮ » à droite de la durée ouvrant le menu d'actions (façon Symfonium).
+    var showsMenu: Bool = false
 
     var body: some View {
         HStack(spacing: Spacing.m) {
@@ -44,6 +46,9 @@ struct TrackRowView: View {
                 .font(Typo.technique)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
+            if showsMenu {
+                TrackMenuButton(track: track)
+            }
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
