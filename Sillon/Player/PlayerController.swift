@@ -45,6 +45,16 @@ final class PlayerController {
         queue.indices.contains(currentIndex) ? queue[currentIndex] : nil
     }
 
+    enum RepeatMode: String, CaseIterable {
+        case off, all, one
+        var systemImage: String { self == .one ? "repeat.1" : "repeat" }
+        var isActive: Bool { self != .off }
+    }
+
+    private(set) var isShuffled = false
+    var repeatMode: RepeatMode = .off
+    @ObservationIgnored private var originalQueue: [Track] = []
+
     // MARK: Dépendances
     @ObservationIgnored private let container: ModelContainer
     @ObservationIgnored private weak var downloadManager: DownloadManager?
@@ -117,6 +127,52 @@ final class PlayerController {
             currentIndex -= 1
             Task { await loadCurrent(autoplay: true) }
         }
+    }
+
+    // MARK: - File d'attente / aléatoire / répétition
+
+    /// Bascule la lecture aléatoire. Le morceau en cours reste en tête ; le reste est mélangé
+    /// (ou l'ordre d'origine restauré à la désactivation).
+    func toggleShuffle() {
+        guard let current = currentTrack else { isShuffled.toggle(); return }
+        if isShuffled {
+            isShuffled = false
+            if !originalQueue.isEmpty {
+                queue = originalQueue
+                currentIndex = queue.firstIndex { $0.id == current.id } ?? 0
+                originalQueue = []
+            }
+        } else {
+            isShuffled = true
+            originalQueue = queue
+            var rest = queue.filter { $0.id != current.id }
+            rest.shuffle()
+            queue = [current] + rest
+            currentIndex = 0
+        }
+    }
+
+    func cycleRepeatMode() {
+        switch repeatMode {
+        case .off: repeatMode = .all
+        case .all: repeatMode = .one
+        case .one: repeatMode = .off
+        }
+    }
+
+    /// Saute à un morceau précis de la file.
+    func jump(to index: Int) {
+        guard queue.indices.contains(index) else { return }
+        currentIndex = index
+        Task { await loadCurrent(autoplay: true) }
+    }
+
+    /// Réordonne la file (glisser-déposer) en conservant le morceau en cours.
+    func moveQueue(from source: IndexSet, to destination: Int) {
+        let currentID = currentTrack?.id
+        queue.move(fromOffsets: source, toOffset: destination)
+        if let currentID { currentIndex = queue.firstIndex { $0.id == currentID } ?? currentIndex }
+        if isShuffled { originalQueue = [] }   // l'ordre manuel prime sur la restauration shuffle
     }
 
     func skip(by seconds: TimeInterval) {
@@ -306,13 +362,25 @@ final class PlayerController {
     }
 
     private func handlePlaybackEnded() {
-        if currentIndex + 1 < queue.count {
-            next()
-        } else {
-            isPlaying = false
-            currentTime = duration
-            stopTicker()
-            updateNowPlayingInfo()
+        switch repeatMode {
+        case .one:
+            Task { await loadCurrent(autoplay: true) }
+        case .all:
+            if currentIndex + 1 < queue.count {
+                next()
+            } else {
+                currentIndex = 0
+                Task { await loadCurrent(autoplay: true) }
+            }
+        case .off:
+            if currentIndex + 1 < queue.count {
+                next()
+            } else {
+                isPlaying = false
+                currentTime = duration
+                stopTicker()
+                updateNowPlayingInfo()
+            }
         }
     }
 

@@ -84,4 +84,10 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   (log `mediaremoted` : item + artwork 768px + rate). Le widget ne s'affiche pas dans le simulateur
   (limite d'UI connue) mais s'affichera sur appareil réel (cf. Docs/DECISIONS.md #33).
 
-Reste de la Phase 2 (proposée) : file d'attente + shuffle/repeat, et la proposition d'origine.
+- [x] **File d'attente + lecture aléatoire / répétition** *(sur demande)*
+  Modes **shuffle** (le morceau en cours reste en tête, le reste mélangé, ordre d'origine restauré) et
+  **répétition** off / toutes / une (`PlayerController`) ; écran **file d'attente** (`QueueView`) :
+  saut direct, réordonnancement glisser-déposer, morceau en cours mis en évidence. Boutons
+  shuffle/repeat/file dans le lecteur. Logique couverte par `SillonTests/PlayerQueueTests`.
+
+Reste de la Phase 2 : la proposition d'origine (à préciser).

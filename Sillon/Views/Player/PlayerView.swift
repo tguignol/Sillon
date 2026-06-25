@@ -9,6 +9,7 @@ struct PlayerView: View {
     @Environment(\.playerController) private var player
     @Environment(\.dismiss) private var dismiss
     @State private var showEQ = false
+    @State private var showQueue = false
     @State private var scrubTime: Double?
     @AppStorage("spectrumStyle") private var spectrumStyleRaw = SpectrumStyle.circularBars.rawValue
 
@@ -34,6 +35,7 @@ struct PlayerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Palette.fondNoir)
             .sheet(isPresented: $showEQ) { EQView() }
+            .sheet(isPresented: $showQueue) { QueueView() }
         } else {
             ContentUnavailableView("Rien en lecture", systemImage: "music.note")
                 .background(Palette.fondNoir)
@@ -161,19 +163,30 @@ struct PlayerView: View {
     }
 
     private func bottomRow(track: Track, player: PlayerController) -> some View {
-        HStack {
+        HStack(spacing: Spacing.l) {
             Button { player.toggleFavoriteOfCurrent() } label: {
                 Image(systemName: track.isFavorite ? "heart.fill" : "heart")
-                    .font(.title3)
                     .foregroundStyle(track.isFavorite ? Palette.accentCuivre : Palette.texteIvoire)
             }
-            .buttonStyle(.plain)
             Spacer()
+            Button { player.toggleShuffle() } label: {
+                Image(systemName: "shuffle")
+                    .foregroundStyle(player.isShuffled ? Palette.accentCuivre : Palette.texteIvoire)
+            }
+            Button { player.cycleRepeatMode() } label: {
+                Image(systemName: player.repeatMode.systemImage)
+                    .foregroundStyle(player.repeatMode.isActive ? Palette.accentCuivre : Palette.texteIvoire)
+            }
+            Button { showQueue = true } label: {
+                Image(systemName: "list.bullet").foregroundStyle(Palette.texteIvoire)
+            }
             #if os(iOS)
             RoutePickerView()
-                .frame(width: 40, height: 40)
+                .frame(width: 32, height: 32)
             #endif
         }
+        .font(.title3)
+        .buttonStyle(.plain)
     }
 }
 
