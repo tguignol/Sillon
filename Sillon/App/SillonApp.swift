@@ -29,6 +29,10 @@ struct SillonApp: App {
     /// Contrôleur de lecture audio partagé (moteur AVAudioEngine + EQ).
     @State private var playerController: PlayerController
 
+    /// Apparence choisie par l'utilisateur (Réglages). Défaut : sombre (l'app est pensée sombre).
+    @AppStorage("appearanceMode") private var appearanceRaw = AppearanceMode.sombre.rawValue
+    private var appearance: AppearanceMode { AppearanceMode(rawValue: appearanceRaw) ?? .sombre }
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
@@ -36,10 +40,9 @@ struct SillonApp: App {
                 .environment(\.lyricsLoader, lyricsLoader)
                 .environment(\.downloadManager, downloadManager)
                 .environment(\.playerController, playerController)
-                // Le système de design est sombre par nature (cf. Docs/DESIGN_SYSTEM.md : fond noir,
-                // texte ivoire, accents cuivre/teal). On impose donc l'apparence sombre de l'app
-                // (uniquement l'app — pas le réglage clair/sombre du système).
-                .preferredColorScheme(.dark)
+                // Apparence pilotée par le réglage : `nil` (Système) suit l'appareil, sinon clair/sombre
+                // imposé. La palette (Theme.swift) est adaptative, donc l'UI suit le schéma effectif.
+                .preferredColorScheme(appearance.colorScheme)
                 .task {
                     downloadManager.reconcileOnLaunch()
                     playerController.restoreLastSession()

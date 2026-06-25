@@ -418,3 +418,17 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     makeRemoteTrack). Couvert par `LibraryNavigationTests`. **Validé sur iOS 26** : tri desc/asc effectif.
     Note : les dates réelles n'apparaissent qu'après une **re-synchronisation** (le cache existant avait
     été synchronisé avec l'ancien parseur).
+
+43. **Apparence claire / sombre / système — palette adaptative.** L'app n'est plus forcée en sombre :
+    un réglage `@AppStorage("appearanceMode")` (`AppearanceMode` : Système/Clair/Sombre) pilote
+    `.preferredColorScheme` dans `SillonApp` (`nil` = suit le système). **Défaut = Sombre** (l'app reste
+    pensée sombre → aucun changement pour l'existant). Pour que le mode clair rende correctement, la
+    **palette devient adaptative** : nouvel init `Color(light:dark:)` (couleur dynamique via
+    `UIColor`/`NSColor` selon `userInterfaceStyle`/`NSAppearance`) ; les 6 tokens (`fondNoir`,
+    `surfaceElevee`, `accentCuivre`, `signalTeal`, `texteIvoire`, `texteSourdine`) ont une variante claire
+    (fond chaud `0xF6F4EF`, cartes blanches, texte `0x1C1A17`, cuivre/teal assombris pour le contraste) —
+    les variantes sombres reproduisent **à l'identique** la palette d'origine. Toute l'UI dérivant de ces
+    tokens (+ `.secondary` système), elle suit automatiquement le schéma. Réglage en tête de l'écran
+    Réglages (Picker menu). **Validé sur iOS 26** : bascule Sombre↔Clair sur Réglages, Accueil et Lecteur
+    (fonds, texte, accents, transport, spectre, mini-lecteur, onglets) — lisible et cohérent.
+    → **Phase 3 terminée** (minuterie, radio, navigation, apparence).

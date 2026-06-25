@@ -4,9 +4,19 @@ import SwiftData
 /// Racine de l'onglet Réglages. Les sections Égaliseur et préférences générales seront ajoutées
 /// aux commits "Lecteur + Égaliseur" et suivants — ce commit n'introduit que la gestion des serveurs.
 struct SettingsRootView: View {
+    @AppStorage("appearanceMode") private var appearanceRaw = AppearanceMode.sombre.rawValue
+
     var body: some View {
         NavigationStack {
             List {
+                Picker(selection: $appearanceRaw) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Label(mode.label, systemImage: mode.systemImage).tag(mode.rawValue)
+                    }
+                } label: {
+                    Label("Apparence", systemImage: "circle.lefthalf.filled")
+                }
+                .pickerStyle(.menu)
                 NavigationLink {
                     ServerListView()
                 } label: {

@@ -157,6 +157,9 @@ La proposition de Phase 2 d'origine est abandonnée (oubliée) → Phase 3.
   Plus récents / Plus anciens. **Correctif** : parseur de date Subsonic tolérant aux nanosecondes
   (Navidrome) — `dateAdded` était nil partout. Testé + **validé sur iOS 26**. Cf. DECISIONS.md #42.
 
-À venir (Phase 3, demandé par l'utilisateur) :
-- **Apparence claire / sombre / système** (non urgent) — adapter la palette (sombre par nature) ;
-  à grouper avec les corrections d'UI de fin de projet décrites par l'utilisateur.
+- [x] **Apparence claire / sombre / système** *(sur demande)*
+  Réglage `@AppStorage` (Système/Clair/Sombre) pilotant `.preferredColorScheme` ; **palette adaptative**
+  (`Color(light:dark:)`, 6 tokens avec variante claire chaude, variantes sombres inchangées). Défaut
+  Sombre. Sélecteur en tête des Réglages. **Validé sur iOS 26** (Réglages/Accueil/Lecteur). Cf. DECISIONS.md #43.
+
+## Phase 3 — terminée ✅ (minuterie, radio, navigation, apparence). Builds macOS + iOS verts, tests verts.

@@ -1,4 +1,9 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// Système de design centralisé — concrétise `Docs/DESIGN_SYSTEM.md` en constantes Swift.
 ///
@@ -12,18 +17,22 @@ import SwiftUI
 // MARK: - Palette
 
 enum Palette {
-    /// Fond principal (dark natif, légèrement bleuté froid).
-    static let fondNoir = Color(hex: 0x0B0D0F)
+    // Couleurs ADAPTATIVES : variante claire / sombre choisie selon l'apparence effective de l'app.
+    // En mode sombre (apparence par défaut), les valeurs `dark` reproduisent à l'identique la palette
+    // d'origine — aucun changement visuel. Le mode clair garde l'esthétique chaude « disquaire ».
+
+    /// Fond principal.
+    static let fondNoir = Color(light: 0xF6F4EF, dark: 0x0B0D0F)
     /// Cartes, feuilles modales, lignes survolées.
-    static let surfaceElevee = Color(hex: 0x15181B)
+    static let surfaceElevee = Color(light: 0xFFFFFF, dark: 0x15181B)
     /// Accent principal : cœur favori, lecture en cours, AccentColor système.
-    static let accentCuivre = Color(hex: 0xD98E4A)
+    static let accentCuivre = Color(light: 0xB06D2C, dark: 0xD98E4A)
     /// Réservé aux données techniques : EQ actif, indicateur de sync, badges codec.
-    static let signalTeal = Color(hex: 0x4FA8A0)
-    /// Texte principal (blanc cassé chaud, évoque le papier de pochette).
-    static let texteIvoire = Color(hex: 0xF3F1EC)
+    static let signalTeal = Color(light: 0x2E7D75, dark: 0x4FA8A0)
+    /// Texte principal (clair sur fond sombre ; sombre chaud sur fond clair).
+    static let texteIvoire = Color(light: 0x1C1A17, dark: 0xF3F1EC)
     /// Texte secondaire, légendes, métadonnées.
-    static let texteSourdine = Color(hex: 0x9A9590)
+    static let texteSourdine = Color(light: 0x6E6A64, dark: 0x9A9590)
 
     /// Dégradé de repli utilisé par les pochettes manquantes — garde l'esthétique "disquaire"
     /// même sans image distante (fichiers locaux, serveur sans cover art).
@@ -81,5 +90,51 @@ extension Color {
         let g = Double((hex >> 8) & 0xFF) / 255.0
         let b = Double(hex & 0xFF) / 255.0
         self.init(.sRGB, red: r, green: g, blue: b, opacity: 1)
+    }
+
+    /// Couleur dynamique : variante claire / sombre résolue selon l'apparence effective (système ou
+    /// forcée par le réglage de l'app). Garde la palette en code, sans catalogue d'assets.
+    init(light: UInt32, dark: UInt32) {
+        #if os(iOS)
+        self.init(uiColor: UIColor { traits in
+            UIColor(Color(hex: traits.userInterfaceStyle == .dark ? dark : light))
+        })
+        #elseif os(macOS)
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return NSColor(Color(hex: isDark ? dark : light))
+        })
+        #else
+        self.init(hex: dark)
+        #endif
+    }
+}
+
+// MARK: - Apparence (clair / sombre / système)
+
+/// Réglage d'apparence de l'app. `colorScheme == nil` => suit le système.
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case systeme, clair, sombre
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .systeme: "Système"
+        case .clair:   "Clair"
+        case .sombre:  "Sombre"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .systeme: "circle.lefthalf.filled"
+        case .clair:   "sun.max"
+        case .sombre:  "moon"
+        }
+    }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .systeme: nil
+        case .clair:   .light
+        case .sombre:  .dark
+        }
     }
 }
