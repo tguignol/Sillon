@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// Écran d'accueil — "votre disquaire personnel". Sections horizontales à tailles inégales
-/// (cf. Docs/DESIGN_SYSTEM.md) : Ajouts récents en grand format, Favoris récents et Playlists
-/// en format réduit. Les sections vides sont masquées pour éviter un écran à trous.
+/// Écran d'accueil — "votre disquaire personnel". Sections horizontales défilantes : « Ajouts récents »
+/// (30 derniers albums ajoutés au serveur, par date) et « Albums préférés » (albums favoris) en grand
+/// format, puis « Playlists » en format réduit. Les sections vides sont masquées pour éviter un écran à trous.
 struct HomeView: View {
     @Query(sort: \Album.dateAdded, order: .reverse) private var recentAlbums: [Album]
     @Query(filter: #Predicate<Album> { $0.isFavorite }, sort: \Album.favoriteDate, order: .reverse)
@@ -33,7 +33,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
                 HomeSection(title: "Ajouts récents") {
-                    ForEach(Array(recentAlbums.prefix(12))) { album in
+                    ForEach(Array(recentAlbums.prefix(30))) { album in
                         NavigationLink(value: album) {
                             AlbumCard(album: album, size: 180)
                         }
@@ -42,10 +42,10 @@ struct HomeView: View {
                 }
 
                 if !favoriteAlbums.isEmpty {
-                    HomeSection(title: "Favoris récents") {
-                        ForEach(Array(favoriteAlbums.prefix(12))) { album in
+                    HomeSection(title: "Albums préférés") {
+                        ForEach(Array(favoriteAlbums.prefix(30))) { album in
                             NavigationLink(value: album) {
-                                AlbumCard(album: album, size: 130)
+                                AlbumCard(album: album, size: 180)
                             }
                             .buttonStyle(.plain)
                         }
