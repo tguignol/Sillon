@@ -56,7 +56,7 @@ actor SubsonicProvider: ServerProvider {
     }
 
     func syncDelta(since syncCursor: String?) async throws -> SyncDelta {
-        guard let cursorString = syncCursor, let cursorDate = ISO8601DateFormatter().date(from: cursorString) else {
+        guard let cursorString = syncCursor, let cursorDate = Self.parseDate(cursorString) else {
             throw ProviderError.unsupportedServerVersion(
                 "syncDelta nécessite un curseur existant ; utilisez fetchLibrary() pour la 1ère synchronisation."
             )
@@ -136,7 +136,7 @@ actor SubsonicProvider: ServerProvider {
 
             for album in page {
                 if let cursorDate {
-                    guard let createdString = album.created, let created = ISO8601DateFormatter().date(from: createdString) else { continue }
+                    guard let createdString = album.created, let created = Self.parseDate(createdString) else { continue }
                     if created <= cursorDate { break paging }
                 }
                 albums.append(album)
@@ -306,7 +306,7 @@ actor SubsonicProvider: ServerProvider {
             title: album.name,
             year: album.year,
             coverArtPath: album.coverArt,
-            dateAdded: album.created.flatMap { ISO8601DateFormatter().date(from: $0) }
+            dateAdded: Self.parseDate(album.created)
         )
     }
 
@@ -323,7 +323,7 @@ actor SubsonicProvider: ServerProvider {
             durationSeconds: Double(song.duration ?? 0),
             format: song.suffix,
             bitrate: song.bitRate,
-            dateAdded: song.created.flatMap { ISO8601DateFormatter().date(from: $0) },
+            dateAdded: Self.parseDate(song.created),
             genre: song.genre,
             // baseGain (ex. Opus output gain) s'applique quel que soit le mode => on le somme aux deux.
             trackGain: sum(rg?.trackGain, rg?.baseGain),
@@ -339,5 +339,27 @@ actor SubsonicProvider: ServerProvider {
     private static func sum(_ gain: Double?, _ base: Double?) -> Double? {
         guard let gain else { return nil }
         return gain + (base ?? 0)
+    }
+
+    /// Parse une date ISO 8601, **tolérante aux fractions de seconde de précision arbitraire** :
+    /// Navidrome renvoie des nanosecondes (ex. `2026-06-24T12:28:00.382717832Z`, 9 décimales), que
+    /// l'`ISO8601DateFormatter` standard rejette (il n'accepte que 3 décimales avec `.withFractionalSeconds`,
+    /// ou aucune). On essaie : fractions ms, puis sans fraction, puis on tronque les fractions à 3 chiffres.
+    static func parseDate(_ string: String?) -> Date? {
+        guard let string, !string.isEmpty else { return nil }
+        let withFrac = ISO8601DateFormatter(); withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withFrac.date(from: string) { return d }
+        let plain = ISO8601DateFormatter(); plain.formatOptions = [.withInternetDateTime]
+        if let d = plain.date(from: string) { return d }
+        // Fractions trop longues : tronquer à 3 chiffres (millisecondes) puis re-parser.
+        if let dot = string.firstIndex(of: ".") {
+            let rest = string[string.index(after: dot)...]
+            if let tzIndex = rest.firstIndex(where: { "Z+-".contains($0) }) {
+                let millis = String(rest[..<tzIndex].prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0)
+                let rebuilt = "\(string[..<dot]).\(millis)\(rest[tzIndex...])"
+                return withFrac.date(from: rebuilt)
+            }
+        }
+        return nil
     }
 }

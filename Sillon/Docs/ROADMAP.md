@@ -152,6 +152,11 @@ La proposition de Phase 2 d'origine est abandonnée (oubliée) → Phase 3.
   (`DecadesListView`→`DecadeAlbumsView`, déduit de `Album.year`). Liens à closure (fiabilité nav).
   Testé (`LibraryNavigationTests`) + **validé sur iOS 26**. Cf. DECISIONS.md #41.
 
+- [x] **Onglet « Récents » (tri par date d'ajout serveur)** *(sur demande)*
+  Segment « Récents » dans la Bibliothèque : albums triés par `Album.dateAdded` avec bascule
+  Plus récents / Plus anciens. **Correctif** : parseur de date Subsonic tolérant aux nanosecondes
+  (Navidrome) — `dateAdded` était nil partout. Testé + **validé sur iOS 26**. Cf. DECISIONS.md #42.
+
 À venir (Phase 3, demandé par l'utilisateur) :
 - **Apparence claire / sombre / système** (non urgent) — adapter la palette (sombre par nature) ;
   à grouper avec les corrections d'UI de fin de projet décrites par l'utilisateur.

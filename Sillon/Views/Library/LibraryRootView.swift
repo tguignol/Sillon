@@ -10,6 +10,7 @@ struct LibraryRootView: View {
         case albums = "Albums"
         case titres = "Titres"
         case playlists = "Playlists"
+        case ajoutRecent = "Récents"
         var id: String { rawValue }
     }
 
@@ -78,6 +79,7 @@ struct LibraryRootView: View {
         case .albums: AlbumsGridView(sort: albumSort)
         case .titres: TracksListView()
         case .playlists: PlaylistsListView()
+        case .ajoutRecent: RecentAdditionsView()
         }
     }
 }

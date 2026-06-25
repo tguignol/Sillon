@@ -404,3 +404,17 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     en test). Détail : `"\(String(decade))s"` pour éviter le séparateur de milliers ajouté par le format
     locale à un Int dans un `LocalizedStringKey`. Tests `LibraryNavigationTests` (décodage genre, ordres
     de tri). **Validé sur iOS 26** : tri par année, genres (→ titres), décennies (→ albums).
+
+42. **Onglet « Récents » + correctif du parseur de date Subsonic.** Nouveau segment **« Récents »** dans
+    la Bibliothèque (`RecentAdditionsView`) : grille d'albums triée par **date d'ajout serveur**
+    (`Album.dateAdded`) avec bascule **Plus récents / Plus anciens** (segmenté), `@Query` reconstruit selon
+    l'ordre. Libellé court « Récents » (et non « Ajout récent ») pour tenir dans le picker à 5 segments
+    sans troncature. **Bug pré-existant corrigé** : Navidrome renvoie les dates `created` avec des
+    **nanosecondes** (ex. `2026-06-24T12:28:00.382717832Z`, 9 décimales), que l'`ISO8601DateFormatter`
+    standard **rejette** (il n'accepte que 0 ou 3 décimales) → `dateAdded` était **nil pour TOUS** les
+    albums et titres (affectant aussi l'« Ajouts récents » de l'accueil et le tri « récent »). Helper
+    `SubsonicProvider.parseDate` tolérant : essai ms, puis sans fraction, puis **troncature des fractions
+    à 3 chiffres** ; appliqué aux 4 points de parsing (curseur delta, getAlbumList2, makeRemoteAlbum,
+    makeRemoteTrack). Couvert par `LibraryNavigationTests`. **Validé sur iOS 26** : tri desc/asc effectif.
+    Note : les dates réelles n'apparaissent qu'après une **re-synchronisation** (le cache existant avait
+    été synchronisé avec l'ancien parseur).
