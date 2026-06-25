@@ -11,6 +11,17 @@ struct TrackMenuContent: View {
 
     var body: some View {
         Button {
+            player?.playNext(track)
+        } label: {
+            Label("Lire ensuite", systemImage: "text.line.first.and.arrowtriangle.forward")
+        }
+        Button {
+            player?.addToQueue(track)
+        } label: {
+            Label("Ajouter à la file", systemImage: "text.line.last.and.arrowtriangle.forward")
+        }
+        Divider()
+        Button {
             player?.startRadio(from: track)
         } label: {
             Label("Lancer une radio", systemImage: "antenna.radiowaves.left.and.right")

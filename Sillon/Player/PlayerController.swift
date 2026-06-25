@@ -329,6 +329,47 @@ final class PlayerController {
         rescheduleFromCurrentPosition()
     }
 
+    /// Insère un morceau juste après le morceau courant (« Lire ensuite »). Comme le suivant est
+    /// pré-planifié sur le nœud/​deck, on remplace cette pré-planification par un re-seek à la position
+    /// courante (le morceau courant continue à la même position ; seul le suivant change).
+    func playNext(_ track: Track) {
+        guard !queue.isEmpty, currentTrack != nil else { play(queue: [track], startAt: 0); return }
+        let hasPreparedNext = nextPreparedIndex != nil || (crossfadeGraphActive && idleDeck.trackIndex != nil)
+        queue.insert(track, at: min(currentIndex + 1, queue.count))
+        if isShuffled, !originalQueue.isEmpty, let cur = currentTrack,
+           let oi = originalQueue.firstIndex(where: { $0.id == cur.id }) {
+            originalQueue.insert(track, at: min(oi + 1, originalQueue.count))
+        }
+        if hasPreparedNext {
+            rescheduleFromCurrentPosition()   // remplace l'ancien suivant déjà planifié
+        } else {
+            prepareUpcomingTrack()            // le courant était le dernier : on pré-planifie sans rien couper
+        }
+    }
+
+    /// Ajoute un morceau en fin de file (« Ajouter à la file »), sans interrompre la lecture. Si le
+    /// morceau courant était le dernier, on pré-planifie le nouveau suivant ; sinon le suivant déjà
+    /// planifié reste valide et le morceau ajouté sera pris en compte naturellement à la transition.
+    func addToQueue(_ track: Track) {
+        guard !queue.isEmpty, currentTrack != nil else { play(queue: [track], startAt: 0); return }
+        let wasLast = currentIndex + 1 >= queue.count
+        queue.append(track)
+        if isShuffled, !originalQueue.isEmpty { originalQueue.append(track) }
+        if wasLast { prepareUpcomingTrack() }
+    }
+
+    /// Pré-planifie le morceau suivant (gapless ou deck de crossfade selon le graphe actif) sans toucher
+    /// au morceau courant. Les pré-planificateurs sont idempotents (gardes sur l'index déjà prêt).
+    private func prepareUpcomingTrack() {
+        guard audioFile != nil else { return }
+        let generation = scheduleGeneration
+        if crossfadeGraphActive {
+            Task { await prepareNextDeck(generation: generation) }
+        } else {
+            Task { await scheduleNextGapless(generation: generation) }
+        }
+    }
+
     func skip(by seconds: TimeInterval) {
         seek(to: min(max(0, currentTime + seconds), duration))
     }
