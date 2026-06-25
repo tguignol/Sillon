@@ -61,6 +61,14 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
 Les 7 commits sont faits et validés sur iOS 26.5 contre les vrais serveurs (Jellyfin + Navidrome).
 Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant Phase 2.
 
-## Phase 2 (proposée, non développée)
+## Phase 2 (en cours, sur demande)
 
-Voir la proposition donnée dans la conversation. À ne développer qu'après validation explicite.
+- [x] **Visualisation de spectre + barre de volume** *(sur demande utilisateur)*
+  Analyseur de spectre temps réel (`AudioSpectrumAnalyzer` : tap audio + FFT Accelerate) ;
+  visualisation **cercle de fréquences** (`SpectrumRingView`) autour de la pochette, à la place de
+  l'anneau de progression ; barre de **volume** dans le lecteur (entre le transport et la ligne du
+  cœur), reliée au mixer du moteur. L'enum `SpectrumStyle` prévoit les autres styles (ondulation,
+  barres, cascade, oscilloscope) — le **sélecteur de style** sera ajouté plus tard.
+  **Validé sur iOS 26.5** : spectre animé en temps réel + volume fonctionnel (cf. Docs/DECISIONS.md #32).
+
+Reste de la Phase 2 (proposée) : voir la proposition de la conversation, à développer après validation.

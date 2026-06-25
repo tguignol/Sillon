@@ -24,6 +24,14 @@ final class PlayerController {
     private(set) var duration: TimeInterval = 0
     private(set) var errorMessage: String?
 
+    /// Magnitudes de spectre temps réel (0…1, graves → aigus) pour la visualisation autour de la pochette.
+    private(set) var spectrum: [Float] = Array(repeating: 0, count: 48)
+
+    /// Volume de sortie de l'app (0…1), appliqué au mixer du moteur.
+    var volume: Float = 1.0 {
+        didSet { engine.mainMixerNode.outputVolume = max(0, min(1, volume)) }
+    }
+
     var currentTrack: Track? {
         queue.indices.contains(currentIndex) ? queue[currentIndex] : nil
     }
@@ -42,6 +50,8 @@ final class PlayerController {
     @ObservationIgnored private var seekFrame: AVAudioFramePosition = 0
     @ObservationIgnored private var scheduleGeneration = 0
     @ObservationIgnored private var ticker: Timer?
+    @ObservationIgnored private let analyzer = AudioSpectrumAnalyzer(bandCount: 48)
+    @ObservationIgnored private var tapInstalled = false
 
     private var context: ModelContext { container.mainContext }
 
@@ -53,6 +63,7 @@ final class PlayerController {
         engine.attach(player)
         engine.attach(eq)
         EQBands.apply(gainsDB: settings.gainsDB, isEnabled: settings.isEnabled, to: eq)
+        engine.mainMixerNode.outputVolume = volume
     }
 
     // MARK: - Transport
@@ -238,6 +249,27 @@ final class PlayerController {
             engine.prepare()
             try? engine.start()
         }
+        installSpectrumTapIfNeeded()
+    }
+
+    private func installSpectrumTapIfNeeded() {
+        guard !tapInstalled else { return }
+        analyzer.installTap(on: engine.mainMixerNode) { [weak self] bands in
+            // Callback sur le thread audio : on rebascule sur le MainActor pour publier.
+            Task { @MainActor in self?.applySpectrum(bands) }
+        }
+        tapInstalled = true
+    }
+
+    /// Attaque rapide / chute lente : donne un mouvement de VU-mètre agréable plutôt que saccadé.
+    private func applySpectrum(_ bands: [Float]) {
+        var updated = spectrum
+        let n = min(updated.count, bands.count)
+        for i in 0..<n {
+            let target = bands[i]
+            updated[i] = target > updated[i] ? target : updated[i] * 0.80 + target * 0.20
+        }
+        spectrum = updated
     }
 
     private func configureAudioSession() {

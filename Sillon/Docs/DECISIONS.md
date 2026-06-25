@@ -233,3 +233,15 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
       pour le texte secondaire — `.secondary` reste idiomatique et s'adapte ; sweep optionnel de polish.
     - **Accepté tel quel** : pas de `deinit` invalidant le `Timer` du lecteur — `PlayerController` vit
       le temps de l'app (instance unique), donc pas de fuite en pratique.
+
+## Phase 2 — Visualisation de spectre + volume (sur demande)
+
+32. **Spectre temps réel (FFT) + style extensible ; volume au niveau mixer.** La progression autour de
+    la pochette est remplacée par une **visualisation de spectre** : un tap sur `engine.mainMixerNode`
+    fournit les tampons audio, une FFT (Accelerate/vDSP) en extrait des magnitudes regroupées en
+    bandes log, lissées (attaque rapide/chute lente) et publiées sur le MainActor. Rendu en **cercle
+    de fréquences** (`SpectrumRingView`, Canvas). L'enum `SpectrumStyle` réserve les autres styles
+    (ondulation, barres, cascade, oscilloscope) — le **sélecteur** sera ajouté plus tard, comme demandé.
+    La **barre de volume** agit sur `engine.mainMixerNode.outputVolume` (volume relatif de l'app, 0…1),
+    testable partout (vs `MPVolumeView` matériel). La progression reste lisible via la barre/temps sous
+    le titre. Validé sur iOS 26 : spectre animé en temps réel, volume fonctionnel.

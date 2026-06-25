@@ -20,6 +20,7 @@ struct PlayerView: View {
                 titles(track: track)
                 progressSection(player: player)
                 transport(player: player)
+                volumeSection(player: player)
                 bottomRow(track: track, player: player)
                 Spacer(minLength: 0)
             }
@@ -48,12 +49,11 @@ struct PlayerView: View {
     }
 
     private func artwork(track: Track, player: PlayerController) -> some View {
-        let progress = player.duration > 0 ? player.currentTime / player.duration : 0
-        return ZStack {
-            GrooveRingView(progress: progress)
+        ZStack {
+            SpectrumRingView(levels: player.spectrum)
             CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
                 .clipShape(Circle())
-                .padding(22)
+                .padding(26)
         }
         .frame(maxWidth: 320)
         .aspectRatio(1, contentMode: .fit)
@@ -127,6 +127,22 @@ struct PlayerView: View {
             if player.isLoading {
                 ProgressView().controlSize(.large)
             }
+        }
+    }
+
+    private func volumeSection(player: PlayerController) -> some View {
+        HStack(spacing: Spacing.m) {
+            Image(systemName: "speaker.fill")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Slider(
+                value: Binding(get: { Double(player.volume) }, set: { player.volume = Float($0) }),
+                in: 0...1
+            )
+            .tint(Palette.accentCuivre)
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
