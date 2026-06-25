@@ -26,9 +26,13 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
   auth → synchro → persistance → Accueil avec pochettes réelles (cf. Docs/DECISIONS.md #21-23,
   dont la correction d'un timeout réel par pagination du provider Jellyfin).
 
-- [ ] **Commit 4 — Téléchargements**
-  `DownloadManager` (URLSessionDownloadTask en arrière-plan), reproduction de l'arborescence
-  serveur, file visible avec statut, lecture offline-first.
+- [x] **Commit 4 — Téléchargements** *(celui-ci)*
+  `DownloadManager` (URLSession **de fond** + délégué), reproduction de l'arborescence serveur
+  (`<NomServeur>/<Artiste>/<Album>/<NN - Titre>.<ext>`), file visible avec statut/progression
+  (Réglages ▸ Téléchargements), boutons de téléchargement par titre et par album, réconciliation au
+  lancement, helper de lecture offline-first (`localURL(for:)`).
+  **Validé sur iOS 26.5** : album Navidrome (11 titres M4A 1411 kbps, ~295 Mo) téléchargé de bout en
+  bout, fichiers écrits dans l'arborescence serveur, état reflété dans l'UI (cf. Docs/DECISIONS.md #24-26).
 
 - [ ] **Commit 5 — Lecteur + Égaliseur**
   Moteur AVAudioEngine/AVAudioUnitEQ, écran lecteur (cover plein écran, barre de progression avec

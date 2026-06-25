@@ -155,3 +155,27 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     fait de même côté test, en lisant les identifiants depuis l'environnement et en **se désactivant**
     s'ils sont absents. Aucun identifiant n'est codé en dur ni committé : tout vient de l'environnement
     de lancement, fourni localement.
+
+## Commit 4 — Téléchargements
+
+24. **Racine de téléchargement par plateforme ; `~/Music` macOS différé.** L'arborescence relative
+    `<NomServeur>/<Artiste>/<Album>/<NN - Titre>.<ext>` (décision #5) est appliquée sous *Documents*
+    (iOS) et *Application Support* (macOS). Le placement littéral dans `~/Music` sur macOS (prévu par
+    #5) nécessite l'entitlement « Music Folder » : il est **différé** pour ne pas modifier le
+    sandbox/les entitlements en cours de phase. L'arborescence relative, elle, est déjà conforme et
+    vérifiée (fichiers réels écrits au bon endroit sur iOS 26).
+
+25. **Destination encodée dans `taskDescription`, pas de changement de schéma.** Le délégué de la
+    session de fond doit déplacer le fichier reçu **synchroniquement** (le temporaire est supprimé au
+    retour) sans accès à SwiftData : la destination (et le `trackID`) sont donc encodés dans
+    `URLSessionTask.taskDescription` à la mise en file, et survivent à une relance de l'app. Aucun
+    `@Model` n'a été modifié (`DownloadTask` existait déjà depuis le commit 1) → **aucune migration**,
+    la bibliothèque déjà synchronisée est préservée.
+
+26. **URLSession de fond + réconciliation au lancement.** Conformément au brief (« en arrière-plan »),
+    les téléchargements utilisent `URLSessionConfiguration.background(withIdentifier:)` avec un délégué
+    non isolé qui rebascule sur le `MainActor` pour écrire en SwiftData. Au lancement, `reconcileOnLaunch`
+    réassocie les tâches système vivantes et repasse en échec celles interrompues sans fichier final.
+    Sur iOS, un `UIApplicationDelegateAdaptor` route le completion handler du réveil en arrière-plan.
+    La lecture offline-first est préparée via `DownloadManager.localURL(for:)` (le lecteur du commit 5
+    s'en servira en priorité avant de streamer).

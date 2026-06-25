@@ -39,11 +39,7 @@ struct TrackRowView: View {
                     .font(.caption)
                     .foregroundStyle(Palette.accentCuivre)
             }
-            if track.isAvailableOffline {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            DownloadButton(track: track)
             Text(track.durationSeconds.asTrackDuration)
                 .font(Typo.technique)
                 .foregroundStyle(.secondary)

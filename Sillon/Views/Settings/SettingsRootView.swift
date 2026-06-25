@@ -12,6 +12,11 @@ struct SettingsRootView: View {
                 } label: {
                     Label("Serveurs", systemImage: "server.rack")
                 }
+                NavigationLink {
+                    DownloadsView()
+                } label: {
+                    Label("Téléchargements", systemImage: "arrow.down.circle")
+                }
             }
             .navigationTitle("Réglages")
         }

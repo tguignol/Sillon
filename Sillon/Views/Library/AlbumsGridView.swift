@@ -32,6 +32,7 @@ struct AlbumsGridView: View {
 /// Détail d'un album : en-tête (pochette + métadonnées) puis liste ordonnée des morceaux.
 struct AlbumDetailView: View {
     let album: Album
+    @Environment(\.downloadManager) private var downloadManager
 
     private var orderedTracks: [Track] {
         album.tracks.sorted {
@@ -59,6 +60,17 @@ struct AlbumDetailView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            if let downloadManager, album.server?.type != .local, !orderedTracks.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task { await downloadManager.enqueueAlbum(album) }
+                    } label: {
+                        Label("Télécharger l'album", systemImage: "arrow.down.circle")
+                    }
+                }
+            }
+        }
     }
 
     private var header: some View {
