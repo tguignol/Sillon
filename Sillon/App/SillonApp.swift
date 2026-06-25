@@ -36,7 +36,10 @@ struct SillonApp: App {
                 // texte ivoire, accents cuivre/teal). On impose donc l'apparence sombre de l'app
                 // (uniquement l'app — pas le réglage clair/sombre du système).
                 .preferredColorScheme(.dark)
-                .task { downloadManager.reconcileOnLaunch() }
+                .task {
+                    downloadManager.reconcileOnLaunch()
+                    playerController.restoreLastSession()
+                }
         }
         .modelContainer(modelContainer)
     }

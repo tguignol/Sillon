@@ -90,4 +90,10 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   saut direct, réordonnancement glisser-déposer, morceau en cours mis en évidence. Boutons
   shuffle/repeat/file dans le lecteur. Logique couverte par `SillonTests/PlayerQueueTests`.
 
-Reste de la Phase 2 : la proposition d'origine (à préciser).
+- [~] **Lecture audiophile** *(sur demande, en cours)*
+  Fait : **reprise au lancement** (file + morceau + position restaurés en pause, persistance
+  UserDefaults — validé sur iOS 26 : « Carolyne » restauré à 2:14) ; **infos de format réel** dans le
+  lecteur (codec · fréquence · profondeur · débit, lu depuis l'`AVAudioFile`). À suivre : gapless /
+  crossfade, normalisation du volume (ReplayGain — nécessite les tags du serveur). Cf. Docs/DECISIONS.md #34.
+
+Reste de la Phase 2 : gapless/crossfade, ReplayGain, et la proposition d'origine (à préciser).

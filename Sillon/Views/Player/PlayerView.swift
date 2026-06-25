@@ -23,7 +23,7 @@ struct PlayerView: View {
                 topBar
                 Spacer(minLength: 0)
                 artwork(track: track, player: player)
-                titles(track: track)
+                titles(track: track, format: player.currentFormatDescription)
                 progressSection(player: player)
                 transport(player: player)
                 volumeSection(player: player)
@@ -75,7 +75,7 @@ struct PlayerView: View {
         .aspectRatio(1, contentMode: .fit)
     }
 
-    private func titles(track: Track) -> some View {
+    private func titles(track: Track, format: String?) -> some View {
         VStack(spacing: Spacing.xs) {
             Text(track.title)
                 .font(Typo.display)
@@ -85,8 +85,10 @@ struct PlayerView: View {
             Text(track.artistNameSnapshot ?? track.album?.artist?.name ?? "Artiste inconnu")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            if !track.technicalBadge.isEmpty {
-                Text(track.technicalBadge)
+            // Format réellement lu (codec · fréquence · profondeur · débit), sinon le badge du titre.
+            let badge = (format?.isEmpty == false) ? format! : track.technicalBadge
+            if !badge.isEmpty {
+                Text(badge)
                     .font(Typo.technique)
                     .foregroundStyle(Palette.signalTeal)
             }

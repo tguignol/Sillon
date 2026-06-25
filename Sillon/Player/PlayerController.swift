@@ -36,6 +36,9 @@ final class PlayerController {
     /// Forme d'onde temporelle (-1…1) pour le style oscilloscope.
     private(set) var waveform: [Float] = Array(repeating: 0, count: 128)
 
+    /// Description technique du flux réellement lu (codec · fréquence · profondeur · débit).
+    private(set) var currentFormatDescription: String?
+
     /// Volume de sortie de l'app (0…1), appliqué au mixer du moteur.
     var volume: Float = 1.0 {
         didSet { engine.mainMixerNode.outputVolume = max(0, min(1, volume)) }
@@ -73,6 +76,7 @@ final class PlayerController {
     @ObservationIgnored private var tapInstalled = false
     @ObservationIgnored private var currentArtwork: MPMediaItemArtwork?
     @ObservationIgnored private var artworkToken = UUID()
+    @ObservationIgnored private var lastSaveTime: TimeInterval = 0
 
     private var context: ModelContext { container.mainContext }
 
@@ -111,6 +115,7 @@ final class PlayerController {
             startTicker()
         }
         updateNowPlayingInfo()
+        savePlaybackState()
     }
 
     func next() {
@@ -202,6 +207,7 @@ final class PlayerController {
             startTicker()
         }
         updateNowPlayingInfo()
+        savePlaybackState()
     }
 
     // MARK: - Favori (le cœur du lecteur)
@@ -256,6 +262,7 @@ final class PlayerController {
             duration = Double(file.length) / sampleRate
             seekFrame = 0
             currentTime = 0
+            currentFormatDescription = Self.formatDescription(for: file, track: track)
 
             connectGraph(format: file.processingFormat)
             startEngineIfNeeded()
@@ -273,6 +280,7 @@ final class PlayerController {
             }
             updateNowPlayingInfo()
             Task { await loadArtwork(for: track) }
+            savePlaybackState()
         } catch {
             errorMessage = "Fichier audio illisible."
             isPlaying = false
@@ -403,6 +411,11 @@ final class PlayerController {
         if let nodeTime = player.lastRenderTime, let playerTime = player.playerTime(forNodeTime: nodeTime) {
             currentTime = min(duration, Double(seekFrame + playerTime.sampleTime) / sampleRate)
         }
+        // Sauvegarde périodique de la position pour la reprise au lancement.
+        if currentTime - lastSaveTime >= 8 {
+            lastSaveTime = currentTime
+            savePlaybackState()
+        }
     }
 
     // MARK: - Providers
@@ -495,6 +508,60 @@ final class PlayerController {
             // Pas de pochette : on garde les métadonnées texte.
         }
     }
+
+    // MARK: - Format réel & reprise de session
+
+    /// Décrit le flux réellement lu : codec · fréquence d'échantillonnage · profondeur · débit.
+    nonisolated static func formatDescription(for file: AVAudioFile, track: Track) -> String {
+        var parts: [String] = []
+        if let format = track.format, !format.isEmpty { parts.append(format.uppercased()) }
+        let asbd = file.fileFormat.streamDescription.pointee
+        let sampleRate = asbd.mSampleRate > 0 ? asbd.mSampleRate : file.processingFormat.sampleRate
+        if sampleRate > 0 { parts.append(String(format: "%.1f kHz", sampleRate / 1000)) }
+        if asbd.mBitsPerChannel > 0 { parts.append("\(asbd.mBitsPerChannel) bit") }
+        if let bitrate = track.bitrate, bitrate > 0 { parts.append("\(bitrate) kbps") }
+        return parts.joined(separator: " · ")
+    }
+
+    private static let savedStateKey = "sillon.lastPlaybackState"
+
+    private func savePlaybackState() {
+        guard !queue.isEmpty, currentTrack != nil else { return }
+        let state = SavedPlaybackState(trackIDs: queue.map(\.id), currentIndex: currentIndex, position: currentTime)
+        if let data = try? JSONEncoder().encode(state) {
+            UserDefaults.standard.set(data, forKey: Self.savedStateKey)
+        }
+    }
+
+    /// Restaure la dernière session (file + morceau + position) au lancement, **en pause**.
+    func restoreLastSession() {
+        guard queue.isEmpty,   // ne pas écraser une lecture déjà en cours
+              let data = UserDefaults.standard.data(forKey: Self.savedStateKey),
+              let state = try? JSONDecoder().decode(SavedPlaybackState.self, from: data),
+              !state.trackIDs.isEmpty
+        else { return }
+
+        let ids = state.trackIDs
+        let descriptor = FetchDescriptor<Track>(predicate: #Predicate { ids.contains($0.id) })
+        let found = (try? context.fetch(descriptor)) ?? []
+        let byID = Dictionary(found.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let restored = state.trackIDs.compactMap { byID[$0] }
+        guard !restored.isEmpty else { return }
+
+        queue = restored
+        currentIndex = min(max(0, state.currentIndex), restored.count - 1)
+        Task {
+            await loadCurrent(autoplay: false)
+            if state.position > 1 { seek(to: state.position) }
+        }
+    }
+}
+
+/// État de lecture persisté (UserDefaults) pour la reprise au lancement.
+private struct SavedPlaybackState: Codable {
+    var trackIDs: [String]
+    var currentIndex: Int
+    var position: Double
 }
 
 extension EnvironmentValues {

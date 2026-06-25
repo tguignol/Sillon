@@ -253,6 +253,16 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     par le log système `mediaremoted` sur iOS 26 (item + artwork 768px + PlaybackRate) ; le **widget
     visuel ne s'affiche pas dans le simulateur** (limite d'UI connue, comme l'AirPlay) mais fonctionne
     sur appareil réel.
+
+## Phase 2 — Lecture audiophile (en cours)
+
+34. **Reprise au lancement + format réel.** La session (file + index + position) est persistée en
+    `UserDefaults` (sauvegarde à chaque chargement/play-pause/seek et toutes les ~8 s) et restaurée au
+    lancement **en pause** (`restoreLastSession`, appelée depuis `SillonApp`). Le lecteur affiche le
+    **format réellement lu** (codec · fréquence d'échantillonnage · profondeur · débit), extrait de
+    l'`AVAudioFile` (fallback sur le badge du titre). À venir : gapless/crossfade (pré-planification du
+    morceau suivant sur le nœud) et normalisation du volume **ReplayGain** — différée car elle nécessite
+    de récupérer les tags de gain côté serveur (changement de provider + de schéma).
     La **barre de volume** agit sur `engine.mainMixerNode.outputVolume` (volume relatif de l'app, 0…1),
     testable partout (vs `MPVolumeView` matériel). La progression reste lisible via la barre/temps sous
     le titre. Validé sur iOS 26 : spectre animé en temps réel, volume fonctionnel.
