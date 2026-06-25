@@ -245,6 +245,14 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     (court historique de spectres en anneaux concentriques) et oscilloscope (forme d'onde temporelle
     publiée en plus par l'analyseur). Un **sélecteur** (menu dans le lecteur, persisté `@AppStorage`)
     change de style en direct.
+
+33. **Now Playing au niveau système.** Le `PlayerController` alimente `MPNowPlayingInfoCenter`
+    (titre/artiste/album/durée/position/rate + pochette chargée en best-effort) et enregistre les
+    `MPRemoteCommandCenter` (play/pause/togglePlayPause/next/previous/changePlaybackPosition), mis à
+    jour à chaque chargement/play-pause/seek/fin. Les handlers rebasculent sur le MainActor. Confirmé
+    par le log système `mediaremoted` sur iOS 26 (item + artwork 768px + PlaybackRate) ; le **widget
+    visuel ne s'affiche pas dans le simulateur** (limite d'UI connue, comme l'AirPlay) mais fonctionne
+    sur appareil réel.
     La **barre de volume** agit sur `engine.mainMixerNode.outputVolume` (volume relatif de l'app, 0…1),
     testable partout (vs `MPVolumeView` matériel). La progression reste lisible via la barre/temps sous
     le titre. Validé sur iOS 26 : spectre animé en temps réel, volume fonctionnel.

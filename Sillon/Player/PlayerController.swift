@@ -2,6 +2,12 @@ import Foundation
 import SwiftUI
 import SwiftData
 import AVFoundation
+import MediaPlayer
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// Contrôleur de lecture audio : moteur `AVAudioEngine` (chaîne `player → EQ → mixer`) + file de
 /// lecture + transport. Offline-first : si un morceau est téléchargé, on lit le fichier local ;
@@ -55,6 +61,8 @@ final class PlayerController {
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private let analyzer = AudioSpectrumAnalyzer(bandCount: 48)
     @ObservationIgnored private var tapInstalled = false
+    @ObservationIgnored private var currentArtwork: MPMediaItemArtwork?
+    @ObservationIgnored private var artworkToken = UUID()
 
     private var context: ModelContext { container.mainContext }
 
@@ -67,6 +75,7 @@ final class PlayerController {
         engine.attach(eq)
         EQBands.apply(gainsDB: settings.gainsDB, isEnabled: settings.isEnabled, to: eq)
         engine.mainMixerNode.outputVolume = volume
+        setupRemoteCommands()
     }
 
     // MARK: - Transport
@@ -91,6 +100,7 @@ final class PlayerController {
             isPlaying = true
             startTicker()
         }
+        updateNowPlayingInfo()
     }
 
     func next() {
@@ -135,6 +145,7 @@ final class PlayerController {
             isPlaying = true
             startTicker()
         }
+        updateNowPlayingInfo()
     }
 
     // MARK: - Favori (le cœur du lecteur)
@@ -204,6 +215,8 @@ final class PlayerController {
                 isPlaying = true
                 startTicker()
             }
+            updateNowPlayingInfo()
+            Task { await loadArtwork(for: track) }
         } catch {
             errorMessage = "Fichier audio illisible."
             isPlaying = false
@@ -299,6 +312,7 @@ final class PlayerController {
             isPlaying = false
             currentTime = duration
             stopTicker()
+            updateNowPlayingInfo()
         }
     }
 
@@ -330,6 +344,88 @@ final class PlayerController {
         let created = try ServerProviderFactory.makeProvider(for: server)
         providers[server.id] = created
         return created
+    }
+
+    // MARK: - Now Playing (écran verrouillé / Centre de contrôle / AirPods)
+
+    private func setupRemoteCommands() {
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.addTarget { [weak self] _ in
+            Task { @MainActor in if self?.isPlaying == false { self?.togglePlayPause() } }
+            return .success
+        }
+        center.pauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in if self?.isPlaying == true { self?.togglePlayPause() } }
+            return .success
+        }
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.togglePlayPause() }
+            return .success
+        }
+        center.nextTrackCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.next() }
+            return .success
+        }
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.previous() }
+            return .success
+        }
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            Task { @MainActor in self?.seek(to: e.positionTime) }
+            return .success
+        }
+    }
+
+    /// Met à jour les métadonnées « en cours de lecture » du système (titre, artiste, durée, position).
+    private func updateNowPlayingInfo() {
+        guard let track = currentTrack else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: track.title,
+            MPMediaItemPropertyPlaybackDuration: duration,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
+        ]
+        if let artist = track.artistNameSnapshot ?? track.album?.artist?.name {
+            info[MPMediaItemPropertyArtist] = artist
+        }
+        if let album = track.album?.title {
+            info[MPMediaItemPropertyAlbumTitle] = album
+        }
+        if let currentArtwork {
+            info[MPMediaItemPropertyArtwork] = currentArtwork
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// Charge la pochette pour l'écran verrouillé (best-effort, asynchrone).
+    private func loadArtwork(for track: Track) async {
+        currentArtwork = nil
+        let token = UUID()
+        artworkToken = token
+        guard let server = track.server, let path = track.album?.coverArtRemotePath else { return }
+        do {
+            let provider = try provider(for: server)
+            guard let url = try await provider.coverArtURL(for: path, preferredSize: 600) else { return }
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard artworkToken == token else { return }   // morceau changé entre-temps
+            #if os(iOS)
+            if let image = UIImage(data: data) {
+                currentArtwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                updateNowPlayingInfo()
+            }
+            #elseif os(macOS)
+            if let image = NSImage(data: data) {
+                currentArtwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                updateNowPlayingInfo()
+            }
+            #endif
+        } catch {
+            // Pas de pochette : on garde les métadonnées texte.
+        }
     }
 }
 

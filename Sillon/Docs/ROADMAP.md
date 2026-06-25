@@ -73,4 +73,15 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   **Validé sur iOS 26.5** : spectre animé en temps réel, changement de style en direct, volume
   fonctionnel (cf. Docs/DECISIONS.md #32).
 
-Reste de la Phase 2 (proposée) : voir la proposition de la conversation, à développer après validation.
+- [x] **Recherche dans la bibliothèque** *(sur demande)*
+  Recherche locale unifiée (artistes / albums / titres) via `.searchable` + `SearchResultsView`
+  (`localizedStandardContains`, insensible casse/accents, bornée). Instantanée, hors connexion.
+  **Validé sur iOS 26.5** ("oasis" → artiste + albums).
+
+- [x] **Now Playing (écran verrouillé / Centre de contrôle / AirPods)** *(sur demande)*
+  `MPNowPlayingInfoCenter` (titre, artiste, album, durée, position, pochette) + `MPRemoteCommandCenter`
+  (play/pause/next/prev/seek) câblés au `PlayerController`. **Confirmé au niveau système sur iOS 26.5**
+  (log `mediaremoted` : item + artwork 768px + rate). Le widget ne s'affiche pas dans le simulateur
+  (limite d'UI connue) mais s'affichera sur appareil réel (cf. Docs/DECISIONS.md #33).
+
+Reste de la Phase 2 (proposée) : file d'attente + shuffle/repeat, et la proposition d'origine.
