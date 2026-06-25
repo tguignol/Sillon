@@ -15,6 +15,7 @@ struct LibraryRootView: View {
 
     @State private var section: Section = .albums
     @State private var searchText = ""
+    @State private var albumSort: AlbumSortOrder = .titre
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -44,13 +45,37 @@ struct LibraryRootView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .searchable(text: $searchText, prompt: "Artistes, albums, titres")
+            .toolbar {
+                if !isSearching {
+                    if section == .albums {
+                        ToolbarItem(placement: .primaryAction) { sortMenu }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        NavigationLink { BrowseRootView() } label: {
+                            Image(systemName: "rectangle.3.group")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("Trier les albums", selection: $albumSort) {
+                ForEach(AlbumSortOrder.allCases) { order in
+                    Label(order.label, systemImage: order.systemImage).tag(order)
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
         }
     }
 
     @ViewBuilder private var content: some View {
         switch section {
         case .artistes: ArtistsListView()
-        case .albums: AlbumsGridView()
+        case .albums: AlbumsGridView(sort: albumSort)
         case .titres: TracksListView()
         case .playlists: PlaylistsListView()
         }

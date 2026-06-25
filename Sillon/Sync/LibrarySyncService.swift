@@ -198,6 +198,7 @@ enum LibrarySyncService {
             track.bitrate = remote.bitrate
             track.dateAdded = remote.dateAdded
             track.artistNameSnapshot = remote.artistName
+            track.genre = remote.genre
             // ReplayGain (lecture seule) ; Subsonic fournit aussi albumGain/peak par song, ce qui
             // permet au lecteur de résoudre le mode « album » sans charger la relation `album`.
             track.trackGain = remote.trackGain

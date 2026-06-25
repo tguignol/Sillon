@@ -14,6 +14,8 @@ final class Track {
     var format: String?
     var bitrate: Int?
     var dateAdded: Date?
+    /// Genre principal du morceau (optionnel → migration légère). Sert à la navigation par genre.
+    var genre: String?
 
     /// ReplayGain (LECTURE SEULE depuis le serveur) — gains en dB, peaks en ratio linéaire.
     /// Tous optionnels => migration légère SwiftData (aucune valeur par défaut requise). nil = inconnu.

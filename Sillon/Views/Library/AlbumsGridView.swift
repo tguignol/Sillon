@@ -1,9 +1,43 @@
 import SwiftUI
 import SwiftData
 
-/// Grille des albums, triés par titre. Mène au détail d'album (liste des morceaux).
+/// Ordre de tri de la grille d'albums.
+enum AlbumSortOrder: String, CaseIterable, Identifiable {
+    case titre, artiste, annee, recent
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .titre:   "Titre"
+        case .artiste: "Artiste"
+        case .annee:   "Année"
+        case .recent:  "Ajouts récents"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .titre:   "textformat"
+        case .artiste: "music.mic"
+        case .annee:   "calendar"
+        case .recent:  "clock"
+        }
+    }
+    var descriptors: [SortDescriptor<Album>] {
+        switch self {
+        case .titre:   [SortDescriptor(\.title)]
+        case .artiste: [SortDescriptor(\.artistNameSnapshot), SortDescriptor(\.title)]
+        case .annee:   [SortDescriptor(\.year, order: .reverse), SortDescriptor(\.title)]
+        case .recent:  [SortDescriptor(\.dateAdded, order: .reverse), SortDescriptor(\.title)]
+        }
+    }
+}
+
+/// Grille des albums (tri configurable). Mène au détail d'album (liste des morceaux).
 struct AlbumsGridView: View {
-    @Query(sort: \Album.title) private var albums: [Album]
+    @Query private var albums: [Album]
+
+    init(sort: AlbumSortOrder = .titre) {
+        _albums = Query(sort: sort.descriptors)
+    }
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 

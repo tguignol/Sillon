@@ -388,3 +388,19 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     titres. Décodage testé (`RadioTests`). **Validé sur iOS 26** contre Navidrome : file de **41 titres**
     du même genre, artistes variés (Klaus Nomi → Cabrel, Vai, ELP, Bangles, Gainsbourg, Coldplay…),
     sans aucun timeout.
+
+41. **Navigation par genres / décennies + tri des albums.** **Schéma** : champ `Track.genre: String?`
+    (optionnel → migration légère, validée live : 15 738 titres préservés, colonne ajoutée). Parsé en
+    sync : Subsonic `song.genre`, Jellyfin `Genres[].first` (champ `Genres` ajouté au `Fields`).
+    **Tri des albums** : `AlbumSortOrder` (titre/artiste/année/récent) ; `AlbumsGridView(sort:)` reconstruit
+    son `@Query` depuis l'ordre, `LibraryRootView` tient l'état et un menu de tri (barre d'outils).
+    **Parcourir** (icône `rectangle.3.group`) → `BrowseRootView` : « Par genre » (`GenresListView` —
+    genres distincts via un `FetchDescriptor` à `propertiesToFetch: [\.genre]` pour ne charger que la
+    colonne, dédupliqués → `GenreTracksView` filtré + « Mélanger ») et « Par décennie » (`DecadesListView`
+    — décennies déduites de `Album.year`, déjà stocké, **sans migration** → `DecadeAlbumsView`).
+    **Décision navigation** : on utilise des `NavigationLink` à **closure** (et non `value:` +
+    `navigationDestination`) dans ces vues poussées — le `navigationDestination(for:)` placé dans une vue
+    elle-même atteinte par un lien à closure ne s'enregistrait pas de façon fiable (titres non cliquables
+    en test). Détail : `"\(String(decade))s"` pour éviter le séparateur de milliers ajouté par le format
+    locale à un Int dans un `LocalizedStringKey`. Tests `LibraryNavigationTests` (décodage genre, ordres
+    de tri). **Validé sur iOS 26** : tri par année, genres (→ titres), décennies (→ albums).

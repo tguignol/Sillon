@@ -324,6 +324,7 @@ actor SubsonicProvider: ServerProvider {
             format: song.suffix,
             bitrate: song.bitRate,
             dateAdded: song.created.flatMap { ISO8601DateFormatter().date(from: $0) },
+            genre: song.genre,
             // baseGain (ex. Opus output gain) s'applique quel que soit le mode => on le somme aux deux.
             trackGain: sum(rg?.trackGain, rg?.baseGain),
             trackPeak: rg?.trackPeak,

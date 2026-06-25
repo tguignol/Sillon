@@ -67,6 +67,7 @@ struct JellyfinBaseItem: Decodable, Sendable {
     let DateCreated: String?      // ISO 8601
     let MediaStreams: [JellyfinMediaStream]?
     let ImageTags: JellyfinImageTags?
+    let Genres: [String]?
     /// Gain de normalisation ReplayGain (dB, gain piste déjà prêt). Propriété racine de l'item,
     /// PAS dans MediaSources. Nullable : absent si le fichier n'a pas de tag ReplayGain et que la
     /// tâche serveur « Audio Normalization » (scan LUFS) n'a pas tourné. Pas de peak ni de gain album.

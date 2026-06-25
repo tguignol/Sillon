@@ -82,6 +82,7 @@ struct RemoteTrack: Sendable, Identifiable, Hashable {
     var format: String?
     var bitrate: Int?
     var dateAdded: Date?
+    var genre: String? = nil
     /// ReplayGain (LECTURE SEULE depuis le serveur). Gains en dB (déjà prêts à appliquer),
     /// peaks en ratio linéaire (~0..1, peut dépasser 1.0 si le master est clippé). nil = pas de donnée.
     /// Jellyfin ne renseigne que `trackGain` (NormalizationGain) ; OpenSubsonic renseigne tout.

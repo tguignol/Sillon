@@ -145,7 +145,13 @@ La proposition de Phase 2 d'origine est abandonnée (oubliée) → Phase 3.
   la file (graine en tête). UI « Lancer une radio » (menu contextuel des titres). Testé (`RadioTests`)
   + **validé sur iOS 26** : file de 41 titres du même genre, artistes variés. Cf. DECISIONS.md #40.
 
+- [x] **Navigation par genres / décennies + tri** *(sur demande)*
+  Champ `Track.genre` ajouté au schéma (migration légère) + parsé en sync (Subsonic/Jellyfin).
+  Bibliothèque : menu de **tri** des albums (titre/artiste/année/récent, `@Query` reconfiguré) et
+  écran **Parcourir** → « Par genre » (`GenresListView`→`GenreTracksView`) et « Par décennie »
+  (`DecadesListView`→`DecadeAlbumsView`, déduit de `Album.year`). Liens à closure (fiabilité nav).
+  Testé (`LibraryNavigationTests`) + **validé sur iOS 26**. Cf. DECISIONS.md #41.
+
 À venir (Phase 3, demandé par l'utilisateur) :
-- **Navigation par genres / années + options de tri** dans la bibliothèque.
 - **Apparence claire / sombre / système** (non urgent) — adapter la palette (sombre par nature) ;
   à grouper avec les corrections d'UI de fin de projet décrites par l'utilisateur.
