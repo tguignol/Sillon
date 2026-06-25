@@ -24,42 +24,35 @@ struct RootTabView: View {
             }
 
             Tab("Favoris", systemImage: "heart.fill") {
-                PlaceholderScreen(title: "Favoris", systemImage: "heart.fill")
+                FavoritesView()
             }
 
             Tab("Réglages", systemImage: "gearshape.fill") {
                 SettingsRootView()
             }
         }
-        .safeAreaInset(edge: .bottom) {
+        #if os(iOS)
+        // Slot natif iOS 26 au-dessus de la barre d'onglets (façon Apple Music) : le mini-lecteur
+        // n'empiète plus sur les onglets.
+        .tabViewBottomAccessory {
             if playerController?.currentTrack != nil {
                 NowPlayingBar { showPlayer = true }
             }
         }
-        #if os(iOS)
         .fullScreenCover(isPresented: $showPlayer) { PlayerView() }
         #else
+        .safeAreaInset(edge: .bottom) {
+            if playerController?.currentTrack != nil {
+                NowPlayingBar { showPlayer = true }
+                    .padding(.vertical, Spacing.s)
+                    .background(.thinMaterial)
+            }
+        }
         .sheet(isPresented: $showPlayer) { PlayerView().frame(minWidth: 360, minHeight: 600) }
         #endif
         #if DEBUG
         .task { await DebugBootstrap.runIfRequested(context: modelContext) }
         #endif
-    }
-}
-
-private struct PlaceholderScreen: View {
-    let title: String
-    let systemImage: String
-
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                title,
-                systemImage: systemImage,
-                description: Text("Cet écran sera construit dans une prochaine étape.")
-            )
-            .navigationTitle(title)
-        }
     }
 }
 

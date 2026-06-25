@@ -59,6 +59,7 @@ private struct ArtistRow: View {
 /// Détail d'un artiste : ses albums en grille.
 struct ArtistDetailView: View {
     let artist: Artist
+    @Environment(\.modelContext) private var context
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
@@ -80,6 +81,13 @@ struct ArtistDetailView: View {
         }
         .navigationTitle(artist.name)
         .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                FavoriteButton(isFavorite: artist.isFavorite, prominent: true) {
+                    Favorites.toggle(artist, context: context)
+                }
+            }
+        }
     }
 }
 

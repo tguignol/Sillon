@@ -6,6 +6,7 @@ import SwiftData
 struct TracksListView: View {
     @Query(sort: \Track.title) private var tracks: [Track]
     @Environment(\.playerController) private var playerController
+    @Environment(\.modelContext) private var context
 
     var body: some View {
         if tracks.isEmpty {
@@ -15,6 +16,7 @@ struct TracksListView: View {
                 TrackRowView(track: track, showsTrackNumber: false)
                     .contentShape(Rectangle())
                     .onTapGesture { playerController?.play(queue: tracks, startAt: index) }
+                    .trackContextMenu(track: track, context: context)
             }
             .listStyle(.plain)
         }

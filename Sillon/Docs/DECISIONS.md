@@ -196,3 +196,20 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     réappliqué au moteur en direct ; changer le nombre de bandes recrée l'`AVAudioUnitEQ` et le
     reconnecte dans le graphe sans interrompre la lecture (vérifié sur iOS 26). Lecture en arrière-plan
     activée (`UIBackgroundModes: audio`, `AVAudioSession` en catégorie `.playback`).
+
+## Commit 6 — Favoris + Playlists
+
+29. **Mini-lecteur via `tabViewBottomAccessory` (iOS 26).** La première intégration plaçait le
+    mini-lecteur en `safeAreaInset(.bottom)`, qui **recouvrait la barre d'onglets** (constaté au test
+    visuel). On utilise désormais le slot natif iOS 26 `tabViewBottomAccessory` (prévu pour un
+    now-playing façon Apple Music) : le mini-lecteur se place proprement au-dessus des onglets, qui
+    restent visibles. Repli `safeAreaInset` sur macOS. Le toggle favori est exposé partout : boutons
+    cœur dans les détails artiste/album et le lecteur, et menu contextuel (`trackContextMenu`) sur les
+    lignes de titre (favori + ajout à une playlist) — évite d'alourdir chaque ligne.
+
+30. **Playlists locales (création/édition côté app), conformément au périmètre.** Le CRUD agit sur le
+    modèle `Playlist` local (cf. #14 : playlists distantes non importées). Le réordonnancement
+    glisser-déposer réécrit `PlaylistItem.position` de façon contiguë (`PlaylistActions.move`), testé
+    par `SillonTests/PlaylistActionsTests`. Validé sur iOS 26 (création, lecture, favoris). Note de
+    test : la saisie clavier synthétique sur le simulateur est peu fiable (menus d'accents) — sans
+    impact sur l'app, à valider au clavier réel.

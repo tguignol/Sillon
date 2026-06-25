@@ -43,9 +43,12 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
   **Validé sur iOS 26.5** : lecture **offline** d'un titre M4A téléchargé (temps qui avance, groove
   ring), changement de bandes EQ en direct (cf. Docs/DECISIONS.md #27-28).
 
-- [ ] **Commit 6 — Favoris + Playlists**
-  Toggle cœur partout, écran Favoris + "Mixer les favoris", CRUD playlists + réordonnancement
-  par glisser-déposer.
+- [x] **Commit 6 — Favoris + Playlists** *(celui-ci)*
+  Toggle cœur partout (détails artiste/album, lecteur, menu contextuel sur les titres) ; onglet
+  Favoris (albums + titres) avec « Mixer les favoris » (lecture aléatoire) ; CRUD playlists
+  (créer/supprimer) + détail avec réordonnancement glisser-déposer (`onMove`) et ajout via
+  « Ajouter à une playlist ». Mini-lecteur déplacé dans le slot natif iOS 26 `tabViewBottomAccessory`.
+  **Validé sur iOS 26.5** (cf. Docs/DECISIONS.md #29-30).
 
 - [ ] **Commit 7 — Polish & revue finale Phase 1**
   Cohérence visuelle inter-écrans, vérification des Previews, README d'exécution finalisé.

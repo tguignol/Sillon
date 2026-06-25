@@ -34,6 +34,7 @@ struct AlbumDetailView: View {
     let album: Album
     @Environment(\.downloadManager) private var downloadManager
     @Environment(\.playerController) private var playerController
+    @Environment(\.modelContext) private var context
 
     private var orderedTracks: [Track] {
         album.tracks.sorted {
@@ -55,6 +56,7 @@ struct AlbumDetailView: View {
                     TrackRowView(track: track, showsTrackNumber: true)
                         .contentShape(Rectangle())
                         .onTapGesture { playerController?.play(queue: orderedTracks, startAt: index) }
+                        .trackContextMenu(track: track, context: context)
                 }
             }
         }
@@ -64,6 +66,11 @@ struct AlbumDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                FavoriteButton(isFavorite: album.isFavorite, prominent: true) {
+                    Favorites.toggle(album, context: context)
+                }
+            }
             if let downloadManager, album.server?.type != .local, !orderedTracks.isEmpty {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
