@@ -67,9 +67,9 @@ struct PlayerView: View {
             SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
             CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
                 .clipShape(Circle())
-                .padding(26)
+                .padding(38)
         }
-        .frame(maxWidth: 320)
+        .frame(maxWidth: 344)
         .aspectRatio(1, contentMode: .fit)
     }
 

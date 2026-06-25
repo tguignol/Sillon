@@ -94,7 +94,7 @@ struct SpectrumRingView: View {
             let end = polar(g.center, g.base + 2 + level * g.maxBar, angle)
             var bar = Path(); bar.move(to: start); bar.addLine(to: end)
             context.stroke(bar, with: .color(Palette.accentCuivre.opacity(0.35 + 0.65 * Double(level))),
-                           style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                           style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
         }
     }
 
@@ -113,7 +113,7 @@ struct SpectrumRingView: View {
             // Barres épaisses, pointe teal sur les pics.
             let color = level > 0.7 ? Palette.signalTeal : Palette.accentCuivre
             context.stroke(bar, with: .color(color.opacity(0.4 + 0.6 * Double(level))),
-                           style: StrokeStyle(lineWidth: 5, lineCap: .butt))
+                           style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
         }
     }
 
@@ -122,8 +122,8 @@ struct SpectrumRingView: View {
         let g = geometry(size)
         let values = mirrored(smoothed(levels))
         let path = closedRadialPath(center: g.center, base: g.base + g.maxBar * 0.4, amplitude: g.maxBar * 0.9, values: values)
-        context.stroke(path, with: .color(Palette.accentCuivre.opacity(0.9)), style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
-        context.fill(path, with: .color(Palette.accentCuivre.opacity(0.10)))
+        context.stroke(path, with: .color(Palette.accentCuivre.opacity(0.9)), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
+        context.fill(path, with: .color(Palette.accentCuivre.opacity(0.08)))
     }
 
     private func drawCascade(_ context: GraphicsContext, _ size: CGSize) {
@@ -137,7 +137,7 @@ struct SpectrumRingView: View {
             let radius = g.base - (1 - t) * g.maxBar * 1.6
             let values = mirrored(frame)
             let path = closedRadialPath(center: g.center, base: radius, amplitude: g.maxBar * 0.6, values: values)
-            context.stroke(path, with: .color(Palette.signalTeal.opacity(0.12 + 0.5 * Double(t))), lineWidth: 1.5)
+            context.stroke(path, with: .color(Palette.signalTeal.opacity(0.12 + 0.5 * Double(t))), lineWidth: 1.0)
         }
     }
 
@@ -156,7 +156,7 @@ struct SpectrumRingView: View {
             if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
         }
         path.closeSubpath()
-        context.stroke(path, with: .color(Palette.signalTeal.opacity(0.9)), style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
+        context.stroke(path, with: .color(Palette.signalTeal.opacity(0.9)), style: StrokeStyle(lineWidth: 1.3, lineJoin: .round))
     }
 
     // MARK: - Outils de tracé
