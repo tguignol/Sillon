@@ -22,6 +22,11 @@ struct SettingsRootView: View {
                 } label: {
                     Label("Égaliseur", systemImage: "slider.vertical.3")
                 }
+                NavigationLink {
+                    PlaybackSettingsView()
+                } label: {
+                    Label("Lecture", systemImage: "play.circle")
+                }
             }
             .navigationTitle("Réglages")
         }

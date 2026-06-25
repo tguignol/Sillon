@@ -15,6 +15,14 @@ final class Track {
     var bitrate: Int?
     var dateAdded: Date?
 
+    /// ReplayGain (LECTURE SEULE depuis le serveur) — gains en dB, peaks en ratio linéaire.
+    /// Tous optionnels => migration légère SwiftData (aucune valeur par défaut requise). nil = inconnu.
+    var trackGain: Double?
+    var trackPeak: Double?
+    var albumGain: Double?
+    var albumPeak: Double?
+    var fallbackGain: Double?
+
     var isFavorite: Bool = false
     var favoriteDate: Date?
 

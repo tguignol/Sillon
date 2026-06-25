@@ -167,6 +167,8 @@ enum LibrarySyncService {
             album.coverArtRemotePath = remote.coverArtPath
             album.dateAdded = remote.dateAdded
             album.artistNameSnapshot = remote.artistName
+            album.albumGain = remote.albumGain
+            album.albumPeak = remote.albumPeak
             if let artistID = remote.artistID { album.artist = index.artist(artistID) }
             tick(&progress, onProgress)
         }
@@ -196,6 +198,13 @@ enum LibrarySyncService {
             track.bitrate = remote.bitrate
             track.dateAdded = remote.dateAdded
             track.artistNameSnapshot = remote.artistName
+            // ReplayGain (lecture seule) ; Subsonic fournit aussi albumGain/peak par song, ce qui
+            // permet au lecteur de résoudre le mode « album » sans charger la relation `album`.
+            track.trackGain = remote.trackGain
+            track.trackPeak = remote.trackPeak
+            track.albumGain = remote.albumGain
+            track.albumPeak = remote.albumPeak
+            track.fallbackGain = remote.fallbackGain
             if let albumID = remote.albumID { track.album = index.album(albumID) }
             tick(&progress, onProgress)
         }

@@ -147,12 +147,28 @@ actor SubsonicProvider: ServerProvider {
         }
 
         var tracks: [RemoteTrack] = []
+        // L'objet SubsonicAlbum du listing ne porte pas de ReplayGain ; le détail album (getAlbum)
+        // renvoie des song[] qui exposent chacun albumGain/albumPeak. On agrège ces valeurs par album
+        // pour les remonter sur le RemoteAlbum (lecture seule — on ne fait que lire ces tags).
+        var albumGainByID: [String: (gain: Double?, peak: Double?)] = [:]
         for album in albums {
             let detail = try await performRequest(path: "getAlbum", extraQuery: [URLQueryItem(name: "id", value: album.id)])
-            tracks.append(contentsOf: (detail.album?.song ?? []).map(Self.makeRemoteTrack))
+            let songs = detail.album?.song ?? []
+            tracks.append(contentsOf: songs.map(Self.makeRemoteTrack))
+            if let rg = songs.lazy.compactMap({ $0.replayGain }).first(where: { $0.albumGain != nil }) {
+                albumGainByID[album.id] = (rg.albumGain, rg.albumPeak)
+            }
         }
 
-        return (albums.map(Self.makeRemoteAlbum), tracks)
+        let remoteAlbums = albums.map { album -> RemoteAlbum in
+            var remote = Self.makeRemoteAlbum(from: album)
+            if let agg = albumGainByID[album.id] {
+                remote.albumGain = agg.gain
+                remote.albumPeak = agg.peak
+            }
+            return remote
+        }
+        return (remoteAlbums, tracks)
     }
 
     private func performRequest(path: String, extraQuery: [URLQueryItem] = []) async throws -> SubsonicResponseBody {
@@ -252,7 +268,8 @@ actor SubsonicProvider: ServerProvider {
     }
 
     private static func makeRemoteTrack(from song: SubsonicSong) -> RemoteTrack {
-        RemoteTrack(
+        let rg = song.replayGain
+        return RemoteTrack(
             id: song.id,
             albumID: song.albumId,
             albumTitle: song.album,
@@ -263,7 +280,20 @@ actor SubsonicProvider: ServerProvider {
             durationSeconds: Double(song.duration ?? 0),
             format: song.suffix,
             bitrate: song.bitRate,
-            dateAdded: song.created.flatMap { ISO8601DateFormatter().date(from: $0) }
+            dateAdded: song.created.flatMap { ISO8601DateFormatter().date(from: $0) },
+            // baseGain (ex. Opus output gain) s'applique quel que soit le mode => on le somme aux deux.
+            trackGain: sum(rg?.trackGain, rg?.baseGain),
+            trackPeak: rg?.trackPeak,
+            albumGain: sum(rg?.albumGain, rg?.baseGain),
+            albumPeak: rg?.albumPeak,
+            fallbackGain: rg?.fallbackGain
         )
+    }
+
+    /// Somme deux gains en dB en propageant `nil` : si le gain principal est absent on renvoie nil
+    /// (pour pouvoir basculer sur le fallback côté lecteur), sinon on ajoute le baseGain s'il existe.
+    private static func sum(_ gain: Double?, _ base: Double?) -> Double? {
+        guard let gain else { return nil }
+        return gain + (base ?? 0)
     }
 }

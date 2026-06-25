@@ -285,3 +285,27 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     **Validé sur iOS 26** : transition « Les Crises de l'âme » → « Carolyne » enchaînée sans blanc, format
     réel et position correctement repris sur le nouveau morceau. À venir : crossfade (fondu enchaîné, par
     `AVAudioUnitMixer`/rampes de gain) et ReplayGain (toujours en attente des tags serveur).
+
+36. **ReplayGain (normalisation du volume) — lecture seule, appliqué sur `player.volume`.** On LIT les
+    tags de gain du serveur (jamais d'écriture). **Jellyfin** n'expose qu'un gain piste,
+    `BaseItemDto.NormalizationGain` (dB, propriété racine de l'item, nullable, sans peak ni gain album —
+    cf. issue jellyfin#14346). **OpenSubsonic/Navidrome** expose un sous-objet `replayGain`
+    (`trackGain`/`albumGain` en dB, `trackPeak`/`albumPeak` linéaires, `baseGain` sommé aux deux gains,
+    `fallbackGain` de repli) présent dès que `openSubsonic: true` (absent sur Subsonic legacy → tout nil,
+    décodage tolérant). Subsonic legacy et le provider local restent neutres (champs nil).
+    **Schéma** : champs `Double?` ajoutés à `Track` (track/album gain+peak, fallback) et `Album`
+    (album gain+peak) ; tous **optionnels** → migration légère SwiftData implicite (pas de versionnage,
+    données existantes préservées, gains nil jusqu'à la prochaine synchro). Côté Subsonic, le détail
+    album fournit album-gain/peak par song : on les stocke aussi sur la piste (résolution du mode
+    « album » sans charger la relation) et on les agrège sur l'`Album`.
+    **Réglages** : `@AppStorage` (clés `replayGainMode`/`replayGainClipProtection`/`replayGainPreampDB`),
+    **pas** un `@Model` SwiftData — ce sont 4 scalaires sans état dérivé, comme `spectrumStyle` ; on évite
+    ainsi un second modèle/migration. `PlayerController` relit ces clés via `UserDefaults` à l'application.
+    **Application sur `player.volume`** (gain par-source) et **non** un nœud post-mix : un nœud après le
+    mixer appliquerait un seul gain aux deux morceaux qui se chevauchent pendant un futur crossfade
+    (faux) ; `player.volume` est correct par-source et se généralisera au crossfade (un gain par deck).
+    Le volume utilisateur reste sur `mainMixerNode.outputVolume`, l'EQ sur l'`eq` — responsabilités
+    séparées. Le calcul pur (`ReplayGain.linearFactor` : sélection mode + replis album→track→fallback,
+    `pow(10, dB/20)`, anti-clipping `factor ≤ 1/peak` sinon cap à 0 dB si peak inconnu) est couvert par
+    `SillonTests/ReplayGainTests`. Appliqué au chargement **et** à chaque transition gapless
+    (`advanceGapless`, sinon le morceau suivant garderait le gain du précédent).

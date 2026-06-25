@@ -86,6 +86,21 @@ final class PlayerController {
 
     private var context: ModelContext { container.mainContext }
 
+    // MARK: Réglages de lecture (miroir des @AppStorage de PlaybackSettingsView, lus à la demande)
+    // PlayerController est @Observable et n'observe pas @AppStorage (réservé aux vues) : il relit
+    // ces préférences via UserDefaults au moment d'appliquer le gain (mêmes clés que l'UI).
+
+    private var replayGainMode: ReplayGainMode {
+        ReplayGainMode(rawValue: UserDefaults.standard.string(forKey: "replayGainMode") ?? "") ?? .off
+    }
+    private var replayGainClipProtection: Bool {
+        // `object(forKey:)` pour distinguer « absent » (défaut true) de « false explicite ».
+        UserDefaults.standard.object(forKey: "replayGainClipProtection") as? Bool ?? true
+    }
+    private var replayGainPreampDB: Double {
+        UserDefaults.standard.double(forKey: "replayGainPreampDB")   // 0 par défaut
+    }
+
     init(container: ModelContainer, downloadManager: DownloadManager? = nil) {
         self.container = container
         self.downloadManager = downloadManager
@@ -290,6 +305,7 @@ final class PlayerController {
             currentFormatDescription = Self.formatDescription(for: file, track: track)
 
             connectGraph(format: file.processingFormat)
+            applyReplayGain()           // gain de normalisation du morceau courant (neutre si désactivé)
             startEngineIfNeeded()
 
             player.stop()
@@ -348,6 +364,36 @@ final class PlayerController {
         engine.disconnectNodeOutput(eq)
         engine.connect(player, to: eq, format: format)
         engine.connect(eq, to: engine.mainMixerNode, format: format)
+    }
+
+    // MARK: - ReplayGain (normalisation du volume)
+
+    /// Applique le gain ReplayGain du morceau courant. On l'applique sur `player.volume` (gain
+    /// par-source) plutôt que sur un nœud post-mix : c'est correct par-source et survivra au
+    /// crossfade (chaque deck portera son propre gain). Le volume utilisateur reste sur le mainMixer,
+    /// l'EQ sur l'eq — aucune des responsabilités n'est mélangée.
+    private func applyReplayGain() {
+        player.volume = replayGainFactor(for: currentTrack)
+    }
+
+    /// Réapplique immédiatement le réglage ReplayGain au morceau en cours (appelé depuis l'UI réglages).
+    func refreshReplayGain() {
+        applyReplayGain()
+    }
+
+    /// Facteur linéaire (0…1+) pour un morceau selon le mode + pré-ampli + anti-clipping.
+    /// Délègue le calcul pur à `ReplayGain.linearFactor` (testé unitairement).
+    private func replayGainFactor(for track: Track?) -> Float {
+        guard let track else { return 1.0 }
+        return ReplayGain.linearFactor(
+            mode: replayGainMode,
+            trackGain: track.trackGain, trackPeak: track.trackPeak,
+            albumGain: track.albumGain, albumPeak: track.albumPeak,
+            albumRelGain: track.album?.albumGain, albumRelPeak: track.album?.albumPeak,
+            fallbackGain: track.fallbackGain,
+            preampDB: replayGainPreampDB,
+            clipProtection: replayGainClipProtection
+        )
     }
 
     private func startEngineIfNeeded() {
@@ -414,6 +460,9 @@ final class PlayerController {
         currentTime = 0
         nextFile = nil
         nextPreparedIndex = nil
+        // Le gapless ne repasse pas par loadCurrent : sans ça le morceau suivant garderait le gain
+        // du précédent. On réapplique le ReplayGain du nouveau morceau courant.
+        applyReplayGain()
         if let track = currentTrack {
             currentFormatDescription = Self.formatDescription(for: file, track: track)
             Task { await loadArtwork(for: track) }

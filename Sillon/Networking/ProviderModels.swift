@@ -63,6 +63,11 @@ struct RemoteAlbum: Sendable, Identifiable, Hashable {
     var year: Int?
     var coverArtPath: String?
     var dateAdded: Date?
+    /// ReplayGain album (LECTURE SEULE depuis le serveur). Gain en dB, peak en ratio linéaire.
+    /// Renseigné par OpenSubsonic (agrégé depuis le détail album) ; nil pour Jellyfin/legacy.
+    /// Défauts `nil` => l'initialiseur memberwise reste rétrocompatible avec les sites existants.
+    var albumGain: Double? = nil
+    var albumPeak: Double? = nil
 }
 
 struct RemoteTrack: Sendable, Identifiable, Hashable {
@@ -77,6 +82,15 @@ struct RemoteTrack: Sendable, Identifiable, Hashable {
     var format: String?
     var bitrate: Int?
     var dateAdded: Date?
+    /// ReplayGain (LECTURE SEULE depuis le serveur). Gains en dB (déjà prêts à appliquer),
+    /// peaks en ratio linéaire (~0..1, peut dépasser 1.0 si le master est clippé). nil = pas de donnée.
+    /// Jellyfin ne renseigne que `trackGain` (NormalizationGain) ; OpenSubsonic renseigne tout.
+    /// Défauts `nil` => l'initialiseur memberwise reste rétrocompatible avec les sites existants.
+    var trackGain: Double? = nil
+    var trackPeak: Double? = nil
+    var albumGain: Double? = nil
+    var albumPeak: Double? = nil
+    var fallbackGain: Double? = nil   // dB, repli OpenSubsonic quand le gain du mode choisi est absent
 }
 
 struct RemotePlaylist: Sendable, Identifiable, Hashable {

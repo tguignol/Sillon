@@ -217,7 +217,7 @@ actor JellyfinProvider: ServerProvider {
             var query: [URLQueryItem] = [
                 URLQueryItem(name: "Recursive", value: "true"),
                 URLQueryItem(name: "IncludeItemTypes", value: includeItemTypes),
-                URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName"),
+                URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName,NormalizationGain"),
                 URLQueryItem(name: "SortBy", value: "SortName"),
                 URLQueryItem(name: "StartIndex", value: String(startIndex)),
                 URLQueryItem(name: "Limit", value: String(pageSize))
@@ -345,7 +345,9 @@ actor JellyfinProvider: ServerProvider {
             durationSeconds: item.durationSeconds,
             format: item.audioCodec,
             bitrate: item.audioBitRate,
-            dateAdded: parseDate(item.DateCreated)
+            dateAdded: parseDate(item.DateCreated),
+            // Jellyfin n'expose qu'un gain piste (NormalizationGain), sans peak ni gain album.
+            trackGain: item.NormalizationGain
         )
     }
 

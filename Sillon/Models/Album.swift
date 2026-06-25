@@ -12,6 +12,11 @@ final class Album {
     var isFavorite: Bool = false
     var favoriteDate: Date?
 
+    /// ReplayGain album (LECTURE SEULE) — gain en dB, peak en ratio linéaire. nil = inconnu.
+    /// Optionnels => migration légère. Source de repli pour le mode « album » côté lecteur.
+    var albumGain: Double?
+    var albumPeak: Double?
+
     /// Dénormalisé pour affichage rapide (tri, recherche) sans remonter à `artist?.name`,
     /// utile aussi pour les compilations "Various Artists" où `artist` peut être nil.
     var artistNameSnapshot: String?

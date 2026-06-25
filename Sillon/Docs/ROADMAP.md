@@ -100,4 +100,14 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   crossfade (fondu enchaîné), normalisation du volume (ReplayGain — nécessite les tags du serveur).
   Cf. Docs/DECISIONS.md #34-35.
 
-Reste de la Phase 2 : crossfade, ReplayGain, et la proposition d'origine (à préciser).
+- [~] **ReplayGain (normalisation du volume)** *(sur demande, en cours)*
+  Lecture seule des tags de gain serveur : Jellyfin `NormalizationGain` (gain piste, dB) ;
+  OpenSubsonic/Navidrome objet `replayGain` (track/album gain en dB + peaks linéaires + base/fallback).
+  Champs `Double?` optionnels sur `Track`/`Album` (migration légère), parsés dans les providers,
+  upsertés en sync. Modes **Désactivé / Piste / Album** + **pré-ampli** + **protection anti-saturation**
+  (réglages `@AppStorage`, écran « Lecture »). Gain appliqué sur `player.volume` (par-source, compatible
+  futur crossfade) au chargement et à chaque transition gapless. Calcul pur testé
+  (`ReplayGainTests`, 11 cas). Cf. Docs/DECISIONS.md #36. **À valider sur iOS 26** contre Navidrome
+  (présence réelle des tags + migration du store existant).
+
+Reste de la Phase 2 : crossfade, et la proposition d'origine (à préciser).

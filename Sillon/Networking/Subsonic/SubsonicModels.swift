@@ -60,6 +60,18 @@ struct SubsonicAlbumList2: Decodable, Sendable {
     let album: [SubsonicAlbum]?
 }
 
+/// ReplayGain OpenSubsonic (sous-objet `replayGain` de chaque song). Champ du cœur OpenSubsonic,
+/// présent dès que `openSubsonic: true` ; absent (=> nil) sur Subsonic legacy. Gains en dB,
+/// peaks en ratio linéaire. Navidrome omet les champs à zéro/absents (omitempty) => nil = inconnu.
+struct SubsonicReplayGain: Decodable, Sendable {
+    let trackGain: Double?
+    let albumGain: Double?
+    let trackPeak: Double?
+    let albumPeak: Double?
+    let baseGain: Double?      // dB, ex. Opus output gain ; à sommer quel que soit le mode
+    let fallbackGain: Double?  // dB, repli côté client quand le gain du mode est absent
+}
+
 struct SubsonicSong: Decodable, Sendable {
     let id: String
     let title: String
@@ -72,6 +84,7 @@ struct SubsonicSong: Decodable, Sendable {
     let suffix: String?   // extension/codec d'origine, ex: "flac", "mp3"
     let bitRate: Int?
     let created: String?
+    let replayGain: SubsonicReplayGain?
 }
 
 struct SubsonicAlbumDetail: Decodable, Sendable {
