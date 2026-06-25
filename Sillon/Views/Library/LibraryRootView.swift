@@ -6,11 +6,12 @@ import SwiftData
 /// y sont résolus), ce qui garde une pile de navigation cohérente quand on passe d'une section à l'autre.
 struct LibraryRootView: View {
     enum Section: String, CaseIterable, Identifiable {
+        // Ordre d'affichage du sélecteur (suit la déclaration via CaseIterable).
+        case ajoutRecent = "Récents"
         case artistes = "Artistes"
         case albums = "Albums"
         case titres = "Titres"
         case playlists = "Playlists"
-        case ajoutRecent = "Récents"
         var id: String { rawValue }
     }
 
