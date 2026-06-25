@@ -10,6 +10,7 @@ import Accelerate
 /// échantillons) puis le résultat est transmis via `onUpdate` (l'appelant rebascule sur le MainActor).
 final class AudioSpectrumAnalyzer {
     let bandCount: Int
+    let waveformCount: Int
 
     private let fftSize: Int
     private let halfSize: Int
@@ -17,12 +18,14 @@ final class AudioSpectrumAnalyzer {
     private let fftSetup: FFTSetup
     private var window: [Float]
 
-    /// Appelé sur le thread audio avec les magnitudes (0…1). L'appelant doit reposter sur le MainActor.
-    private var onUpdate: (([Float]) -> Void)?
+    /// Appelé sur le thread audio avec (magnitudes FFT 0…1, forme d'onde temporelle -1…1).
+    /// L'appelant doit reposter sur le MainActor.
+    private var onUpdate: (([Float], [Float]) -> Void)?
     private weak var tappedNode: AVAudioNode?
 
-    init(bandCount: Int = 48, fftSize: Int = 1024) {
+    init(bandCount: Int = 48, fftSize: Int = 1024, waveformCount: Int = 128) {
         self.bandCount = bandCount
+        self.waveformCount = waveformCount
         self.fftSize = fftSize
         self.halfSize = fftSize / 2
         self.log2n = vDSP_Length(log2(Double(fftSize)))
@@ -36,7 +39,7 @@ final class AudioSpectrumAnalyzer {
         vDSP_destroy_fftsetup(fftSetup)
     }
 
-    func installTap(on node: AVAudioNode, onUpdate: @escaping ([Float]) -> Void) {
+    func installTap(on node: AVAudioNode, onUpdate: @escaping ([Float], [Float]) -> Void) {
         removeTap()
         self.onUpdate = onUpdate
         let format = node.outputFormat(forBus: 0)
@@ -55,10 +58,18 @@ final class AudioSpectrumAnalyzer {
 
     private func process(_ buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData, Int(buffer.frameLength) >= fftSize else { return }
+        let samples = channelData[0]
 
-        // Fenêtre de Hann sur le 1er canal.
+        // Forme d'onde temporelle (oscilloscope) : sous-échantillonnage des échantillons bruts.
+        var waveform = [Float](repeating: 0, count: waveformCount)
+        let stride = max(1, fftSize / waveformCount)
+        for i in 0..<waveformCount {
+            waveform[i] = samples[i * stride]
+        }
+
+        // Fenêtre de Hann sur le 1er canal pour la FFT.
         var windowed = [Float](repeating: 0, count: fftSize)
-        vDSP_vmul(channelData[0], 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
+        vDSP_vmul(samples, 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
 
         var real = [Float](repeating: 0, count: halfSize)
         var imag = [Float](repeating: 0, count: halfSize)
@@ -82,7 +93,7 @@ final class AudioSpectrumAnalyzer {
         var elements = Int32(halfSize)
         vvsqrtf(&amplitudes, magnitudes, &elements)
 
-        onUpdate?(groupIntoBands(amplitudes))
+        onUpdate?(groupIntoBands(amplitudes), waveform)
     }
 
     /// Regroupe les magnitudes en `bandCount` bandes log, normalisées en 0…1 (échelle dB perceptuelle).

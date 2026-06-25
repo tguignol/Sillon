@@ -10,6 +10,11 @@ struct PlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showEQ = false
     @State private var scrubTime: Double?
+    @AppStorage("spectrumStyle") private var spectrumStyleRaw = SpectrumStyle.circularBars.rawValue
+
+    private var spectrumStyle: SpectrumStyle {
+        SpectrumStyle(rawValue: spectrumStyleRaw) ?? .circularBars
+    }
 
     var body: some View {
         if let player, let track = player.currentTrack {
@@ -36,11 +41,20 @@ struct PlayerView: View {
     }
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: Spacing.l) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.down").font(.title3).foregroundStyle(Palette.texteIvoire)
             }
             Spacer()
+            Menu {
+                Picker("Visualisation", selection: $spectrumStyleRaw) {
+                    ForEach(SpectrumStyle.allCases) { style in
+                        Label(style.label, systemImage: style.systemImage).tag(style.rawValue)
+                    }
+                }
+            } label: {
+                Image(systemName: spectrumStyle.systemImage).font(.title3).foregroundStyle(Palette.texteIvoire)
+            }
             Button { showEQ = true } label: {
                 Image(systemName: "slider.vertical.3").font(.title3).foregroundStyle(Palette.signalTeal)
             }
@@ -50,7 +64,7 @@ struct PlayerView: View {
 
     private func artwork(track: Track, player: PlayerController) -> some View {
         ZStack {
-            SpectrumRingView(levels: player.spectrum)
+            SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
             CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
                 .clipShape(Circle())
                 .padding(26)

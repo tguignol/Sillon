@@ -1,82 +1,196 @@
 import SwiftUI
 
-/// Styles de visualisation de spectre. Seul `circularBars` (cercle de fréquences) est rendu pour
-/// l'instant ; les autres sont prévus et un sélecteur sera ajouté plus tard. Les styles non encore
-/// implémentés retombent sur `circularBars`.
+/// Styles de visualisation de spectre, tous rendus en couronne autour de la pochette.
 enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
     case circularBars    // cercle de fréquences
-    case waveform        // ondulation (à venir)
-    case bars            // barres (à venir)
-    case cascade         // cascade (à venir)
-    case oscilloscope    // oscilloscope (à venir)
+    case bars            // barres
+    case waveform        // ondulation
+    case cascade         // cascade
+    case oscilloscope    // oscilloscope
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .circularBars: "Cercle de fréquences"
-        case .waveform: "Ondulation"
         case .bars: "Barres"
+        case .waveform: "Ondulation"
         case .cascade: "Cascade"
         case .oscilloscope: "Oscilloscope"
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .circularBars: "circle.dotted"
+        case .bars: "chart.bar.fill"
+        case .waveform: "wave.3.right"
+        case .cascade: "square.stack.3d.up.fill"
+        case .oscilloscope: "waveform.path.ecg"
+        }
+    }
 }
 
-/// Spectre audio dessiné en couronne autour de la pochette (remplace l'anneau de progression).
-/// `levels` : magnitudes 0…1 par bande de fréquence (graves → aigus).
+/// Spectre audio dessiné en couronne autour de la pochette. `levels` : magnitudes 0…1 par bande
+/// (graves → aigus). `waveform` : forme d'onde temporelle -1…1 (style oscilloscope).
 struct SpectrumRingView: View {
     var levels: [Float]
+    var waveform: [Float] = []
     var style: SpectrumStyle = .circularBars
+
+    @State private var history: [[Float]] = []
 
     var body: some View {
         Canvas { context, size in
-            // Seul le cercle de fréquences est implémenté ; les autres styles s'y rabattent.
-            drawCircularBars(context: context, size: size)
+            switch style {
+            case .circularBars: drawCircularBars(context, size)
+            case .bars: drawBars(context, size)
+            case .waveform: drawWaveform(context, size)
+            case .cascade: drawCascade(context, size)
+            case .oscilloscope: drawOscilloscope(context, size)
+            }
         }
-        .animation(.easeOut(duration: 0.08), value: levels)
+        .onChange(of: levels) { _, new in
+            guard style == .cascade else { return }
+            history.append(new)
+            if history.count > 18 { history.removeFirst() }
+        }
     }
 
-    private func drawCircularBars(context: GraphicsContext, size: CGSize) {
-        let count = levels.count
-        guard count > 0 else { return }
+    // MARK: - Géométrie
 
+    private func polar(_ c: CGPoint, _ r: CGFloat, _ a: CGFloat) -> CGPoint {
+        CGPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r)
+    }
+
+    private func geometry(_ size: CGSize) -> (center: CGPoint, base: CGFloat, maxBar: CGFloat) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let maxBar = min(size.width, size.height) * 0.07
-        let baseRadius = min(size.width, size.height) / 2 - maxBar - 1
+        let base = min(size.width, size.height) / 2 - maxBar - 1
+        return (center, base, maxBar)
+    }
 
-        // Couronne de fond discrète.
-        let baseCircle = Path(ellipseIn: CGRect(
-            x: center.x - baseRadius, y: center.y - baseRadius,
-            width: baseRadius * 2, height: baseRadius * 2))
-        context.stroke(baseCircle, with: .color(Palette.surfaceElevee), lineWidth: 1)
+    private func baseRing(_ context: GraphicsContext, _ center: CGPoint, _ radius: CGFloat) {
+        let circle = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+        context.stroke(circle, with: .color(Palette.surfaceElevee), lineWidth: 1)
+    }
 
-        // Miroir gauche/droite pour une couronne dense et symétrique (graves en haut).
-        let positions = count * 2
-        for p in 0..<positions {
-            let index = p < count ? p : (positions - 1 - p)
-            let level = CGFloat(max(0, min(1, levels[index])))
-            let barLength = 2 + level * maxBar
+    /// Niveaux miroités (gauche/droite) pour une couronne symétrique, graves en haut.
+    private func mirrored(_ values: [Float]) -> [Float] {
+        values + values.reversed()
+    }
 
-            let angle = (Double(p) / Double(positions)) * 2 * .pi - .pi / 2
-            let cosA = CGFloat(cos(angle)), sinA = CGFloat(sin(angle))
-            let start = CGPoint(x: center.x + cosA * baseRadius, y: center.y + sinA * baseRadius)
-            let end = CGPoint(x: center.x + cosA * (baseRadius + barLength), y: center.y + sinA * (baseRadius + barLength))
+    // MARK: - Styles
 
-            var bar = Path()
-            bar.move(to: start)
-            bar.addLine(to: end)
-
-            // Cuivre qui s'éclaire avec le niveau ; pointe vers le teal sur les pics.
-            let color = Palette.accentCuivre.opacity(0.35 + 0.65 * Double(level))
-            context.stroke(bar, with: .color(color), style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+    private func drawCircularBars(_ context: GraphicsContext, _ size: CGSize) {
+        guard !levels.isEmpty else { return }
+        let g = geometry(size)
+        baseRing(context, g.center, g.base)
+        let values = mirrored(levels)
+        for (i, v) in values.enumerated() {
+            let level = CGFloat(max(0, min(1, v)))
+            let angle = CGFloat(Double(i) / Double(values.count)) * 2 * .pi - .pi / 2
+            let start = polar(g.center, g.base, angle)
+            let end = polar(g.center, g.base + 2 + level * g.maxBar, angle)
+            var bar = Path(); bar.move(to: start); bar.addLine(to: end)
+            context.stroke(bar, with: .color(Palette.accentCuivre.opacity(0.35 + 0.65 * Double(level))),
+                           style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
         }
+    }
+
+    private func drawBars(_ context: GraphicsContext, _ size: CGSize) {
+        guard !levels.isEmpty else { return }
+        let g = geometry(size)
+        baseRing(context, g.center, g.base)
+        let values = mirrored(levels)
+        let count = values.count
+        for (i, v) in values.enumerated() {
+            let level = CGFloat(max(0, min(1, v)))
+            let angle = CGFloat(Double(i) / Double(count)) * 2 * .pi - .pi / 2
+            let start = polar(g.center, g.base, angle)
+            let end = polar(g.center, g.base + 2 + level * g.maxBar * 1.3, angle)
+            var bar = Path(); bar.move(to: start); bar.addLine(to: end)
+            // Barres épaisses, pointe teal sur les pics.
+            let color = level > 0.7 ? Palette.signalTeal : Palette.accentCuivre
+            context.stroke(bar, with: .color(color.opacity(0.4 + 0.6 * Double(level))),
+                           style: StrokeStyle(lineWidth: 5, lineCap: .butt))
+        }
+    }
+
+    private func drawWaveform(_ context: GraphicsContext, _ size: CGSize) {
+        guard levels.count > 1 else { return }
+        let g = geometry(size)
+        let values = mirrored(smoothed(levels))
+        let path = closedRadialPath(center: g.center, base: g.base + g.maxBar * 0.4, amplitude: g.maxBar * 0.9, values: values)
+        context.stroke(path, with: .color(Palette.accentCuivre.opacity(0.9)), style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+        context.fill(path, with: .color(Palette.accentCuivre.opacity(0.10)))
+    }
+
+    private func drawCascade(_ context: GraphicsContext, _ size: CGSize) {
+        guard !history.isEmpty else { drawWaveform(context, size); return }
+        let g = geometry(size)
+        let frames = history.suffix(18)
+        let n = frames.count
+        for (age, frame) in frames.enumerated() {
+            // Les plus récents à l'extérieur, les anciens vers l'intérieur et estompés.
+            let t = CGFloat(age) / CGFloat(max(1, n - 1))   // 0 (ancien) → 1 (récent)
+            let radius = g.base - (1 - t) * g.maxBar * 1.6
+            let values = mirrored(frame)
+            let path = closedRadialPath(center: g.center, base: radius, amplitude: g.maxBar * 0.6, values: values)
+            context.stroke(path, with: .color(Palette.signalTeal.opacity(0.12 + 0.5 * Double(t))), lineWidth: 1.5)
+        }
+    }
+
+    private func drawOscilloscope(_ context: GraphicsContext, _ size: CGSize) {
+        guard waveform.count > 2 else { drawCircularBars(context, size); return }
+        let g = geometry(size)
+        baseRing(context, g.center, g.base)
+        let amplitude = g.maxBar * 1.6
+        var path = Path()
+        let count = waveform.count
+        for i in 0..<count {
+            let sample = CGFloat(max(-1, min(1, waveform[i])))
+            let angle = CGFloat(Double(i) / Double(count)) * 2 * .pi - .pi / 2
+            let r = g.base - g.maxBar * 0.2 + sample * amplitude
+            let point = polar(g.center, r, angle)
+            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+        context.stroke(path, with: .color(Palette.signalTeal.opacity(0.9)), style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
+    }
+
+    // MARK: - Outils de tracé
+
+    private func smoothed(_ v: [Float]) -> [Float] {
+        guard v.count > 2 else { return v }
+        return v.indices.map { i in
+            let a = v[max(0, i - 1)], b = v[i], c = v[min(v.count - 1, i + 1)]
+            return (a + b + c) / 3
+        }
+    }
+
+    private func closedRadialPath(center: CGPoint, base: CGFloat, amplitude: CGFloat, values: [Float]) -> Path {
+        var path = Path()
+        let count = values.count
+        for i in 0...count {
+            let v = CGFloat(max(0, min(1, values[i % count])))
+            let angle = CGFloat(Double(i) / Double(count)) * 2 * .pi - .pi / 2
+            let point = polar(center, base + v * amplitude, angle)
+            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
 #Preview {
-    SpectrumRingView(levels: (0..<48).map { Float(abs(sin(Double($0) / 3)) * 0.8) })
-        .frame(width: 300, height: 300)
-        .padding(40)
-        .background(Palette.fondNoir)
+    let demo = (0..<48).map { Float(abs(sin(Double($0) / 3)) * 0.8) }
+    return VStack(spacing: 20) {
+        ForEach(SpectrumStyle.allCases) { style in
+            SpectrumRingView(levels: demo, waveform: (0..<128).map { Float(sin(Double($0) / 5)) }, style: style)
+                .frame(width: 120, height: 120)
+        }
+    }
+    .padding()
+    .background(Palette.fondNoir)
 }

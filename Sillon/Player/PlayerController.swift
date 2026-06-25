@@ -27,6 +27,9 @@ final class PlayerController {
     /// Magnitudes de spectre temps réel (0…1, graves → aigus) pour la visualisation autour de la pochette.
     private(set) var spectrum: [Float] = Array(repeating: 0, count: 48)
 
+    /// Forme d'onde temporelle (-1…1) pour le style oscilloscope.
+    private(set) var waveform: [Float] = Array(repeating: 0, count: 128)
+
     /// Volume de sortie de l'app (0…1), appliqué au mixer du moteur.
     var volume: Float = 1.0 {
         didSet { engine.mainMixerNode.outputVolume = max(0, min(1, volume)) }
@@ -254,15 +257,15 @@ final class PlayerController {
 
     private func installSpectrumTapIfNeeded() {
         guard !tapInstalled else { return }
-        analyzer.installTap(on: engine.mainMixerNode) { [weak self] bands in
+        analyzer.installTap(on: engine.mainMixerNode) { [weak self] bands, wave in
             // Callback sur le thread audio : on rebascule sur le MainActor pour publier.
-            Task { @MainActor in self?.applySpectrum(bands) }
+            Task { @MainActor in self?.applySpectrum(bands, waveform: wave) }
         }
         tapInstalled = true
     }
 
     /// Attaque rapide / chute lente : donne un mouvement de VU-mètre agréable plutôt que saccadé.
-    private func applySpectrum(_ bands: [Float]) {
+    private func applySpectrum(_ bands: [Float], waveform wave: [Float]) {
         var updated = spectrum
         let n = min(updated.count, bands.count)
         for i in 0..<n {
@@ -270,6 +273,7 @@ final class PlayerController {
             updated[i] = target > updated[i] ? target : updated[i] * 0.80 + target * 0.20
         }
         spectrum = updated
+        waveform = wave
     }
 
     private func configureAudioSession() {

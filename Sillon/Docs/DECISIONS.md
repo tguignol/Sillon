@@ -240,8 +240,11 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     la pochette est remplacée par une **visualisation de spectre** : un tap sur `engine.mainMixerNode`
     fournit les tampons audio, une FFT (Accelerate/vDSP) en extrait des magnitudes regroupées en
     bandes log, lissées (attaque rapide/chute lente) et publiées sur le MainActor. Rendu en **cercle
-    de fréquences** (`SpectrumRingView`, Canvas). L'enum `SpectrumStyle` réserve les autres styles
-    (ondulation, barres, cascade, oscilloscope) — le **sélecteur** sera ajouté plus tard, comme demandé.
+    de fréquences** (`SpectrumRingView`, Canvas). **5 styles** sont implémentés (tous en couronne autour
+    de la pochette) : cercle de fréquences, barres, ondulation (`closedRadialPath` lissé), cascade
+    (court historique de spectres en anneaux concentriques) et oscilloscope (forme d'onde temporelle
+    publiée en plus par l'analyseur). Un **sélecteur** (menu dans le lecteur, persisté `@AppStorage`)
+    change de style en direct.
     La **barre de volume** agit sur `engine.mainMixerNode.outputVolume` (volume relatif de l'app, 0…1),
     testable partout (vs `MPVolumeView` matériel). La progression reste lisible via la barre/temps sous
     le titre. Validé sur iOS 26 : spectre animé en temps réel, volume fonctionnel.

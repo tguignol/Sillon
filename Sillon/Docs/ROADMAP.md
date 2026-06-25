@@ -67,8 +67,10 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   Analyseur de spectre temps réel (`AudioSpectrumAnalyzer` : tap audio + FFT Accelerate) ;
   visualisation **cercle de fréquences** (`SpectrumRingView`) autour de la pochette, à la place de
   l'anneau de progression ; barre de **volume** dans le lecteur (entre le transport et la ligne du
-  cœur), reliée au mixer du moteur. L'enum `SpectrumStyle` prévoit les autres styles (ondulation,
-  barres, cascade, oscilloscope) — le **sélecteur de style** sera ajouté plus tard.
-  **Validé sur iOS 26.5** : spectre animé en temps réel + volume fonctionnel (cf. Docs/DECISIONS.md #32).
+  cœur), reliée au mixer du moteur. **5 styles** implémentés (cercle de fréquences, barres, ondulation,
+  cascade, oscilloscope) avec **sélecteur** dans le lecteur (persisté). L'oscilloscope s'appuie sur la
+  forme d'onde temporelle publiée par l'analyseur ; la cascade garde un court historique.
+  **Validé sur iOS 26.5** : spectre animé en temps réel, changement de style en direct, volume
+  fonctionnel (cf. Docs/DECISIONS.md #32).
 
 Reste de la Phase 2 (proposée) : voir la proposition de la conversation, à développer après validation.
