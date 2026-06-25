@@ -91,7 +91,7 @@ struct SpectrumRingView: View {
             let level = CGFloat(max(0, min(1, v)))
             let angle = CGFloat(Double(i) / Double(values.count)) * 2 * .pi - .pi / 2
             let start = polar(g.center, g.base, angle)
-            let end = polar(g.center, g.base + 2 + level * g.maxBar * 0.55, angle)
+            let end = polar(g.center, g.base + 2 + level * g.maxBar * 0.4, angle)
             var bar = Path(); bar.move(to: start); bar.addLine(to: end)
             context.stroke(bar, with: .color(Palette.accentCuivre.opacity(0.35 + 0.65 * Double(level))),
                            style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
@@ -108,7 +108,7 @@ struct SpectrumRingView: View {
             let level = CGFloat(max(0, min(1, v)))
             let angle = CGFloat(Double(i) / Double(count)) * 2 * .pi - .pi / 2
             let start = polar(g.center, g.base, angle)
-            let end = polar(g.center, g.base + 2 + level * g.maxBar * 0.6, angle)
+            let end = polar(g.center, g.base + 2 + level * g.maxBar * 0.4, angle)
             var bar = Path(); bar.move(to: start); bar.addLine(to: end)
             // Barres épaisses, pointe teal sur les pics.
             let color = level > 0.7 ? Palette.signalTeal : Palette.accentCuivre
@@ -121,7 +121,7 @@ struct SpectrumRingView: View {
         guard levels.count > 1 else { return }
         let g = geometry(size)
         let values = mirrored(smoothed(levels))
-        let path = closedRadialPath(center: g.center, base: g.base + g.maxBar * 0.4, amplitude: g.maxBar * 0.55, values: values)
+        let path = closedRadialPath(center: g.center, base: g.base + g.maxBar * 0.4, amplitude: g.maxBar * 0.4, values: values)
         context.stroke(path, with: .color(Palette.accentCuivre.opacity(0.9)), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
         context.fill(path, with: .color(Palette.accentCuivre.opacity(0.08)))
     }
@@ -136,7 +136,7 @@ struct SpectrumRingView: View {
             let t = CGFloat(age) / CGFloat(max(1, n - 1))   // 0 (ancien) → 1 (récent)
             let radius = g.base - (1 - t) * g.maxBar * 1.6
             let values = mirrored(frame)
-            let path = closedRadialPath(center: g.center, base: radius, amplitude: g.maxBar * 0.42, values: values)
+            let path = closedRadialPath(center: g.center, base: radius, amplitude: g.maxBar * 0.3, values: values)
             context.stroke(path, with: .color(Palette.signalTeal.opacity(0.12 + 0.5 * Double(t))), lineWidth: 1.0)
         }
     }
@@ -145,7 +145,7 @@ struct SpectrumRingView: View {
         guard waveform.count > 2 else { drawCircularBars(context, size); return }
         let g = geometry(size)
         baseRing(context, g.center, g.base)
-        let amplitude = g.maxBar * 0.95
+        let amplitude = g.maxBar * 0.7
         var path = Path()
         let count = waveform.count
         for i in 0..<count {
