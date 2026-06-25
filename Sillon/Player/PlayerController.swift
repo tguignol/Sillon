@@ -518,6 +518,14 @@ final class PlayerController {
         try? context.save()
     }
 
+    /// Tamponne l'album du morceau courant comme « écouté maintenant » (section « Continuer l'écoute »
+    /// de l'accueil). Appelé à la lecture explicite et aux transitions gapless/crossfade.
+    private func markCurrentAlbumPlayed() {
+        guard let album = currentTrack?.album else { return }
+        album.lastPlayedDate = .now
+        try? context.save()
+    }
+
     // MARK: - Égaliseur
 
     /// Réapplique l'état EQ persistant au moteur (et recrée l'unité si le nombre de bandes a changé).
@@ -569,6 +577,7 @@ final class PlayerController {
             updateNowPlayingInfo()
             Task { await loadArtwork(for: track) }
             savePlaybackState()
+            if autoplay { markCurrentAlbumPlayed() }   // lecture réelle (pas la reprise en pause au lancement)
         } catch {
             errorMessage = "Fichier audio illisible."
             isPlaying = false
@@ -853,6 +862,7 @@ final class PlayerController {
             currentFormatDescription = Self.formatDescription(for: file, track: track)
             Task { await loadArtwork(for: track) }
         }
+        markCurrentAlbumPlayed()
         updateNowPlayingInfo()
         savePlaybackState()
         Task { await scheduleNextGapless(generation: generation) }
@@ -929,6 +939,7 @@ final class PlayerController {
             currentFormatDescription = Self.formatDescription(for: inFile, track: track)
             Task { await loadArtwork(for: track) }
         }
+        markCurrentAlbumPlayed()
         updateNowPlayingInfo()
         savePlaybackState()
 

@@ -12,6 +12,11 @@ final class Album {
     var isFavorite: Bool = false
     var favoriteDate: Date?
 
+    /// Date de dernière lecture d'un morceau de l'album (optionnel → migration légère). Alimente la
+    /// section « Continuer l'écoute » de l'accueil (5 derniers albums écoutés) et écarte les albums
+    /// récemment joués de « Redécouvrir ». nil = jamais lu depuis l'ajout de ce champ.
+    var lastPlayedDate: Date?
+
     /// ReplayGain album (LECTURE SEULE) — gain en dB, peak en ratio linéaire. nil = inconnu.
     /// Optionnels => migration légère. Source de repli pour le mode « album » côté lecteur.
     var albumGain: Double?

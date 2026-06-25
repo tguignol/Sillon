@@ -1,19 +1,32 @@
 import SwiftUI
 import SwiftData
 
-/// Écran d'accueil — "votre disquaire personnel". Sections horizontales défilantes : « Ajouts récents »
-/// (30 derniers albums ajoutés au serveur, par date) et « Albums préférés » (albums favoris) en grand
-/// format, puis « Playlists » en format réduit. Les sections vides sont masquées pour éviter un écran à trous.
+/// Écran d'accueil — "votre disquaire personnel". Empilement de carrousels horizontaux : albums récents,
+/// préférés, à redécouvrir, écoute en cours, pistes préférées, albums aléatoires, puis playlists. Les
+/// sections vides sont masquées pour éviter un écran à trous. Les sélections aléatoires (« Redécouvrir »,
+/// « Albums aléatoires ») sont figées par lancement (pas de re-mélange à chaque redessin).
 struct HomeView: View {
-    @Query(sort: \Album.dateAdded, order: .reverse) private var recentAlbums: [Album]
+    @Environment(\.playerController) private var player
+
+    @Query(sort: \Album.dateAdded, order: .reverse) private var albumsByDate: [Album]
     @Query(filter: #Predicate<Album> { $0.isFavorite }, sort: \Album.favoriteDate, order: .reverse)
     private var favoriteAlbums: [Album]
+    @Query(filter: #Predicate<Album> { $0.lastPlayedDate != nil }, sort: \Album.lastPlayedDate, order: .reverse)
+    private var playedAlbums: [Album]
+    @Query(filter: #Predicate<Track> { $0.isFavorite }, sort: \Track.favoriteDate, order: .reverse)
+    private var favoriteTracks: [Track]
     @Query(sort: \Playlist.updatedAt, order: .reverse) private var playlists: [Playlist]
+
+    /// Sélections aléatoires figées une fois la bibliothèque chargée (cf. `generateDiscoveryIfNeeded`).
+    @State private var rediscoverAlbums: [Album] = []
+    @State private var randomAlbums: [Album] = []
+
+    private let albumCardSize: CGFloat = 160
 
     var body: some View {
         NavigationStack {
             Group {
-                if recentAlbums.isEmpty {
+                if albumsByDate.isEmpty {
                     LibraryEmptyState(
                         title: "Votre disquaire est vide",
                         message: "Ajoutez un serveur dans Réglages, puis lancez une synchronisation pour retrouver votre musique ici.",
@@ -32,24 +45,36 @@ struct HomeView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
-                HomeSection(title: "Ajouts récents") {
-                    ForEach(Array(recentAlbums.prefix(30))) { album in
-                        NavigationLink(value: album) {
-                            AlbumCard(album: album, size: 180)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                albumCarousel("Albums récents", Array(albumsByDate.prefix(30)))
 
                 if !favoriteAlbums.isEmpty {
-                    HomeSection(title: "Albums préférés") {
-                        ForEach(Array(favoriteAlbums.prefix(30))) { album in
-                            NavigationLink(value: album) {
-                                AlbumCard(album: album, size: 180)
+                    albumCarousel("Albums préférés", Array(favoriteAlbums.prefix(30)))
+                }
+
+                if !rediscoverAlbums.isEmpty {
+                    albumCarousel("Redécouvrir des albums", rediscoverAlbums)
+                }
+
+                if !playedAlbums.isEmpty {
+                    albumCarousel("Continuer l'écoute", Array(playedAlbums.prefix(5)))
+                }
+
+                if !favoriteTracks.isEmpty {
+                    let tracks = Array(favoriteTracks.prefix(20))
+                    HomeSection(title: "Pistes préférées") {
+                        ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                            Button {
+                                player?.play(queue: tracks, startAt: index)
+                            } label: {
+                                TrackCard(track: track, size: 150)
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                }
+
+                if !randomAlbums.isEmpty {
+                    albumCarousel("Albums aléatoires", randomAlbums)
                 }
 
                 if !playlists.isEmpty {
@@ -65,6 +90,33 @@ struct HomeView: View {
             }
             .padding(.vertical, Spacing.l)
         }
+        .onAppear(perform: generateDiscoveryIfNeeded)
+    }
+
+    /// Carrousel d'albums standard (carte + navigation vers le détail).
+    @ViewBuilder
+    private func albumCarousel(_ title: String, _ albums: [Album]) -> some View {
+        HomeSection(title: title) {
+            ForEach(albums) { album in
+                NavigationLink(value: album) {
+                    AlbumCard(album: album, size: albumCardSize)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// Construit (une seule fois, une fois la bibliothèque chargée) les sélections « Redécouvrir » et
+    /// « Albums aléatoires ». Figées pour la durée de vie de la vue → pas de re-mélange à chaque redessin
+    /// (notamment quand `lastPlayedDate` change pendant la lecture) ; renouvelées au prochain lancement.
+    private func generateDiscoveryIfNeeded() {
+        guard randomAlbums.isEmpty, !albumsByDate.isEmpty else { return }
+        randomAlbums = Array(albumsByDate.shuffled().prefix(15))
+        // « Redécouvrir » : priorité aux albums jamais lus (depuis l'ajout du champ) ; repli sur tout
+        // le catalogue si trop peu d'albums jamais lus pour remplir la rangée.
+        let neverPlayed = albumsByDate.filter { $0.lastPlayedDate == nil }
+        let pool = neverPlayed.count >= 15 ? neverPlayed : albumsByDate
+        rediscoverAlbums = Array(pool.shuffled().prefix(15))
     }
 }
 
