@@ -360,3 +360,17 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     `SillonTests/LyricsTests` (formats réels Jellyfin/Subsonic). **Validé sur iOS 26** : surlignage
     synchronisé qui avance et auto-défile (paroles synthétiques), et état vide réel sur Navidrome (dont
     les fichiers n'ont pas de paroles ; **Jellyfin en a sur ~78 % des titres**, souvent synchronisées).
+
+## Phase 3 (sur demande)
+
+39. **Minuterie de veille.** Le `PlayerController` arme un `Timer` (`armSleepTimer(after:)`) et publie
+    `sleepTimerEndDate` (pour un éventuel décompte UI). Deux entrées : durée fixe (15/30/45/60 min,
+    `setSleepTimer(minutes:)`) ou **fin du morceau** (`setSleepTimerEndOfTrack()` = temps restant
+    `duration - currentTime`, ce qui marche identiquement en gapless ET en crossfade, contrairement à
+    une interception de fin de piste). À l'échéance : **fondu de sortie** (~4 s, rampe du
+    `mainMixerNode.outputVolume` vers 0 par pas de 0,1 s) puis pause via `togglePlayPause` (pause propre
+    selon le mode), et **restauration du volume utilisateur** pour que la reprise ne soit pas muette.
+    `cancelSleepTimer` invalide tout et restaure le volume. UI : un menu **lune** (`moon.zzz`) dans la
+    barre du haut du lecteur (cuivre + `moon.zzz.fill` quand armé, option « Désactiver » en tête).
+    Indépendant du serveur. Logique d'armement/annulation testée (`PlayerQueueTests`). **Validé sur
+    iOS 26** : armement → fondu → pause à l'échéance → icône réinitialisée → volume restauré à la reprise.

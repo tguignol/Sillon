@@ -44,6 +44,9 @@ final class PlayerController {
         didSet { engine.mainMixerNode.outputVolume = max(0, min(1, volume)) }
     }
 
+    /// Échéance de la minuterie de veille (nil = désactivée). L'UI s'en sert pour afficher le décompte.
+    private(set) var sleepTimerEndDate: Date?
+
     var currentTrack: Track? {
         queue.indices.contains(currentIndex) ? queue[currentIndex] : nil
     }
@@ -128,6 +131,8 @@ final class PlayerController {
     }
 
     @ObservationIgnored private var ticker: Timer?
+    @ObservationIgnored private var sleepTimer: Timer?
+    @ObservationIgnored private var sleepFadeTimer: Timer?
     @ObservationIgnored private let analyzer = AudioSpectrumAnalyzer(bandCount: 48)
     @ObservationIgnored private var tapInstalled = false
     @ObservationIgnored private var currentArtwork: MPMediaItemArtwork?
@@ -306,6 +311,71 @@ final class PlayerController {
 
     func skip(by seconds: TimeInterval) {
         seek(to: min(max(0, currentTime + seconds), duration))
+    }
+
+    // MARK: - Minuterie de veille
+
+    /// `true` si une minuterie de veille est armée.
+    var isSleepTimerActive: Bool { sleepTimerEndDate != nil }
+
+    /// Arme la minuterie pour s'arrêter dans `minutes` minutes (fondu de sortie puis pause).
+    func setSleepTimer(minutes: Int) {
+        armSleepTimer(after: TimeInterval(max(1, minutes) * 60))
+    }
+
+    /// Arme la minuterie pour s'arrêter à la fin du morceau courant (temps restant).
+    func setSleepTimerEndOfTrack() {
+        armSleepTimer(after: max(1, duration - currentTime))
+    }
+
+    func cancelSleepTimer() {
+        sleepTimer?.invalidate(); sleepTimer = nil
+        sleepFadeTimer?.invalidate(); sleepFadeTimer = nil
+        sleepTimerEndDate = nil
+        engine.mainMixerNode.outputVolume = max(0, min(1, volume))   // au cas où un fondu était en cours
+    }
+
+    private func armSleepTimer(after seconds: TimeInterval) {
+        sleepTimer?.invalidate()
+        sleepFadeTimer?.invalidate(); sleepFadeTimer = nil
+        sleepTimerEndDate = Date().addingTimeInterval(seconds)
+        let timer = Timer(timeInterval: seconds, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.sleepTimerFired() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        sleepTimer = timer
+    }
+
+    private func sleepTimerFired() {
+        sleepTimer = nil
+        sleepTimerEndDate = nil
+        guard isPlaying else { return }
+        fadeOutAndPause()
+    }
+
+    /// Fondu de sortie (~4 s) sur le volume mixer, puis pause, puis restauration du volume utilisateur
+    /// (pour que la prochaine lecture ne démarre pas muette).
+    private func fadeOutAndPause() {
+        let userVolume = max(0, min(1, volume))
+        let steps = 40
+        var step = 0
+        sleepFadeTimer?.invalidate()
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] t in
+            Task { @MainActor in
+                guard let self else { t.invalidate(); return }
+                step += 1
+                let progress = Float(step) / Float(steps)
+                self.engine.mainMixerNode.outputVolume = userVolume * (1 - progress)
+                if step >= steps {
+                    t.invalidate()
+                    self.sleepFadeTimer = nil
+                    if self.isPlaying { self.togglePlayPause() }   // pause propre (gapless/crossfade)
+                    self.engine.mainMixerNode.outputVolume = userVolume   // restaure pour la reprise
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        sleepFadeTimer = timer
     }
 
     func seek(to seconds: TimeInterval) {

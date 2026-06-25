@@ -52,4 +52,19 @@ struct PlayerQueueTests {
         #expect(player.currentTrack?.id == tracks[0].id)       // suit son morceau
         #expect(player.queue.count == 5)
     }
+
+    @Test func sleepTimerArmsAndCancels() {
+        let (player, _) = makePlayer()
+        #expect(!player.isSleepTimerActive)
+        #expect(player.sleepTimerEndDate == nil)
+
+        player.setSleepTimer(minutes: 30)
+        #expect(player.isSleepTimerActive)
+        let remaining = player.sleepTimerEndDate!.timeIntervalSinceNow
+        #expect(remaining > 1790 && remaining <= 1800)   // ~30 min
+
+        player.cancelSleepTimer()
+        #expect(!player.isSleepTimerActive)
+        #expect(player.sleepTimerEndDate == nil)
+    }
 }

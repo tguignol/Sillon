@@ -59,11 +59,29 @@ struct PlayerView: View {
             } label: {
                 Image(systemName: spectrumStyle.systemImage).font(.title3).foregroundStyle(Palette.texteIvoire)
             }
+            sleepTimerMenu
             Button { showEQ = true } label: {
                 Image(systemName: "slider.vertical.3").font(.title3).foregroundStyle(Palette.signalTeal)
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var sleepTimerMenu: some View {
+        Menu {
+            if player?.isSleepTimerActive == true {
+                Button("Désactiver la minuterie", systemImage: "moon.zzz.fill") { player?.cancelSleepTimer() }
+                Divider()
+            }
+            ForEach([15, 30, 45, 60], id: \.self) { minutes in
+                Button("\(minutes) min") { player?.setSleepTimer(minutes: minutes) }
+            }
+            Button("Fin du morceau", systemImage: "music.note") { player?.setSleepTimerEndOfTrack() }
+        } label: {
+            Image(systemName: player?.isSleepTimerActive == true ? "moon.zzz.fill" : "moon.zzz")
+                .font(.title3)
+                .foregroundStyle(player?.isSleepTimerActive == true ? Palette.accentCuivre : Palette.texteIvoire)
+        }
     }
 
     private func artwork(track: Track, player: PlayerController) -> some View {
