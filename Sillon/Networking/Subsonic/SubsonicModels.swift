@@ -26,6 +26,9 @@ struct SubsonicResponseBody: Decodable, Sendable {
     let playlists: SubsonicPlaylists?
     let playlist: SubsonicPlaylistDetail?
     let lyricsList: SubsonicLyricsList?
+    let song: SubsonicSong?                 // getSong
+    let songsByGenre: SubsonicSongsByGenre? // getSongsByGenre
+    let randomSongs: SubsonicSongsByGenre?  // getRandomSongs (même forme : { song: [...] })
 }
 
 /// Réponse `getLyricsBySongId` (extension OpenSubsonic). `start` en millisecondes ; un tableau
@@ -100,7 +103,12 @@ struct SubsonicSong: Decodable, Sendable {
     let suffix: String?   // extension/codec d'origine, ex: "flac", "mp3"
     let bitRate: Int?
     let created: String?
+    let genre: String?
     let replayGain: SubsonicReplayGain?
+}
+
+struct SubsonicSongsByGenre: Decodable, Sendable {
+    let song: [SubsonicSong]?
 }
 
 struct SubsonicAlbumDetail: Decodable, Sendable {

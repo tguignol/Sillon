@@ -134,6 +134,13 @@ actor LocalFilesProvider: ServerProvider {
         return nil
     }
 
+    func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack] {
+        // Pas de notion de « similarité » pour un dossier local : on alimente la radio avec des titres
+        // au hasard de la bibliothèque (hors graine), ce qui reste utile pour une écoute en continu.
+        let snapshot = try await buildSnapshot(from: try enumerateAudioFiles())
+        return Array(snapshot.tracks.filter { $0.id != seedTrackID }.shuffled().prefix(limit))
+    }
+
     // MARK: - Énumération du système de fichiers
 
     private struct LocalAudioFile {

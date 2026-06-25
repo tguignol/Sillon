@@ -138,9 +138,14 @@ La proposition de Phase 2 d'origine est abandonnée (oubliée) → Phase 3.
   gapless et crossfade). À l'échéance : fondu de sortie (~4 s sur le mixer) puis pause, volume utilisateur
   restauré. Indépendant du serveur. Testé (`PlayerQueueTests`) + **validé sur iOS 26**. Cf. DECISIONS.md #39.
 
+- [x] **Radio / titres similaires** *(sur demande)*
+  Méthode lecture seule `ServerProvider.radioTracks(seedTrackID:limit:)` : **Jellyfin** InstantMix ;
+  **Subsonic** repli par genre (`getSong`→`getSongsByGenre`, car `getSimilarSongs` expire via Last.fm) ;
+  **Local** aléatoire. `PlayerController.startRadio(from:)` résout dans la bibliothèque locale et lance
+  la file (graine en tête). UI « Lancer une radio » (menu contextuel des titres). Testé (`RadioTests`)
+  + **validé sur iOS 26** : file de 41 titres du même genre, artistes variés. Cf. DECISIONS.md #40.
+
 À venir (Phase 3, demandé par l'utilisateur) :
-- **Radio / titres similaires** : Jellyfin InstantMix (validé : 12 titres en 2 s) ; Navidrome
-  `getSimilarSongs2` **expire** (agent Last.fm non configuré) → prévoir un repli (genre/artiste) + timeout court.
 - **Navigation par genres / années + options de tri** dans la bibliothèque.
 - **Apparence claire / sombre / système** (non urgent) — adapter la palette (sombre par nature) ;
   à grouper avec les corrections d'UI de fin de projet décrites par l'utilisateur.

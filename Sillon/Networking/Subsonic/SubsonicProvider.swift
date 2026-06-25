@@ -196,6 +196,24 @@ actor SubsonicProvider: ServerProvider {
         return TrackLyrics(synced: synced, lines: lines)
     }
 
+    func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack] {
+        // On évite getSimilarSongs(2) : l'agent Last.fm peut être indisponible et faire expirer la
+        // requête (observé sur ce serveur). Repli rapide et fiable : titres du même GENRE, sinon aléatoires.
+        let detail = try await performRequest(path: "getSong", extraQuery: [URLQueryItem(name: "id", value: seedTrackID)])
+        let songs: [SubsonicSong]
+        if let genre = detail.song?.genre, !genre.isEmpty {
+            let body = try await performRequest(path: "getSongsByGenre", extraQuery: [
+                URLQueryItem(name: "genre", value: genre),
+                URLQueryItem(name: "count", value: String(max(limit * 2, limit + 10)))
+            ])
+            songs = body.songsByGenre?.song ?? []
+        } else {
+            let body = try await performRequest(path: "getRandomSongs", extraQuery: [URLQueryItem(name: "size", value: String(limit))])
+            songs = body.randomSongs?.song ?? []
+        }
+        return Array(songs.filter { $0.id != seedTrackID }.shuffled().prefix(limit)).map(Self.makeRemoteTrack)
+    }
+
     private func performRequest(path: String, extraQuery: [URLQueryItem] = []) async throws -> SubsonicResponseBody {
         let url = try makeAuthenticatedURL(path: path, extraQuery: extraQuery)
 

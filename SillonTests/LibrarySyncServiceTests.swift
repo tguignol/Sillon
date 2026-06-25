@@ -22,6 +22,7 @@ actor StubProvider: ServerProvider {
     func coverArtURL(for remoteID: String, preferredSize: Int?) async throws -> URL? { nil }
     func searchAll(query: String) async throws -> SearchResults { SearchResults(artists: [], albums: [], tracks: []) }
     func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics? { nil }
+    func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack] { [] }
 }
 
 @MainActor

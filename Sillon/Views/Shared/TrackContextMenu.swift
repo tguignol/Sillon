@@ -6,11 +6,17 @@ import SwiftData
 private struct TrackContextMenu: ViewModifier {
     let track: Track
     let context: ModelContext
+    @Environment(\.playerController) private var player
     @State private var showAddToPlaylist = false
 
     func body(content: Content) -> some View {
         content
             .contextMenu {
+                Button {
+                    player?.startRadio(from: track)
+                } label: {
+                    Label("Lancer une radio", systemImage: "antenna.radiowaves.left.and.right")
+                }
                 Button {
                     Favorites.toggle(track, context: context)
                 } label: {

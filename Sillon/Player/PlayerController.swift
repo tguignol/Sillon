@@ -189,6 +189,26 @@ final class PlayerController {
         Task { await loadCurrent(autoplay: true) }
     }
 
+    /// Lance une « radio » à partir d'un morceau : récupère des titres apparentés (provider), les
+    /// résout dans la bibliothèque locale, et démarre la file (graine en tête).
+    func startRadio(from seed: Track) {
+        guard let server = seed.server else { return }
+        isLoading = true
+        Task {
+            defer { isLoading = false }
+            var remotes: [RemoteTrack] = []
+            if let provider = try? provider(for: server) {
+                remotes = (try? await provider.radioTracks(seedTrackID: seed.remoteID, limit: 40)) ?? []
+            }
+            let ids = remotes.map { Track.makeID(serverID: server.id, remoteID: $0.id) }
+            let descriptor = FetchDescriptor<Track>(predicate: #Predicate { ids.contains($0.id) })
+            let found = (try? context.fetch(descriptor)) ?? []
+            let byID = Dictionary(found.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let radio = ids.compactMap { byID[$0] }.filter { $0.id != seed.id }
+            play(queue: [seed] + radio, startAt: 0)
+        }
+    }
+
     func togglePlayPause() {
         guard audioFile != nil else { return }
         if isPlaying {

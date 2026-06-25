@@ -42,4 +42,9 @@ protocol ServerProvider: Actor {
     /// Renvoie `nil` quand le serveur ne fournit aucune parole pour ce morceau (cas normal, pas une
     /// erreur) ; lève `ProviderError` seulement en cas d'échec réseau/auth/décodage.
     func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics?
+
+    /// « Radio » : titres apparentés au morceau-graine, pour alimenter une file de découverte (lecture
+    /// seule). Jellyfin utilise InstantMix ; Subsonic un repli rapide par genre (les endpoints de
+    /// similarité Last.fm pouvant être indisponibles/lents). Peut renvoyer `[]` si non supporté.
+    func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack]
 }

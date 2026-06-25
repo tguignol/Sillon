@@ -220,6 +220,27 @@ actor JellyfinProvider: ServerProvider {
         return TrackLyrics(synced: lines.contains { $0.timeSeconds != nil }, lines: lines)
     }
 
+    func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack] {
+        try await ensureAuthenticated()
+        guard let userID = cachedUserID else { throw ProviderError.missingCredentials }
+        // InstantMix : mix instantané local (genres/métadonnées), sans dépendance externe.
+        guard var components = URLComponents(url: baseURL.appending(path: "Items/\(seedTrackID)/InstantMix"), resolvingAgainstBaseURL: false) else {
+            throw ProviderError.invalidURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "UserId", value: userID),
+            URLQueryItem(name: "Limit", value: String(limit)),
+            URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName")
+        ]
+        guard let url = components.url else { throw ProviderError.invalidURL }
+        var request = URLRequest(url: url)
+        request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
+        let (data, response) = try await perform(request)
+        try Self.validate(response, data: data)
+        let decoded = try JSONDecoder().decode(JellyfinItemsResponse.self, from: data)
+        return decoded.Items.map(Self.makeRemoteTrack)
+    }
+
     // MARK: - Requêtes internes
 
     private func fetchItems(includeItemTypes: String, extraQuery: [String: String] = [:]) async throws -> [JellyfinBaseItem] {

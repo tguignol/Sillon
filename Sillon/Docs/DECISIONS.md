@@ -374,3 +374,17 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     barre du haut du lecteur (cuivre + `moon.zzz.fill` quand armé, option « Désactiver » en tête).
     Indépendant du serveur. Logique d'armement/annulation testée (`PlayerQueueTests`). **Validé sur
     iOS 26** : armement → fondu → pause à l'échéance → icône réinitialisée → volume restauré à la reprise.
+
+40. **Radio / titres similaires — InstantMix Jellyfin, repli par genre Subsonic.** Nouvelle méthode
+    lecture seule du protocole `ServerProvider` (`radioTracks(seedTrackID:limit:)`). **Jellyfin** :
+    `GET /Items/{id}/InstantMix` (mix local par genres/métadonnées, décodé comme une réponse Items).
+    **Subsonic** : on **n'appelle PAS** `getSimilarSongs(2)` — l'agent Last.fm peut être indisponible
+    et faire **expirer** la requête (45 s observés sur le serveur de test) ; repli rapide et fiable par
+    **genre** (`getSong` pour le genre de la graine → `getSongsByGenre`, mélangé, graine exclue ; sinon
+    `getRandomSongs`). **Local** : titres au hasard de la bibliothèque. `PlayerController.startRadio(from:)`
+    récupère ces `RemoteTrack`, les **résout dans la bibliothèque locale** (`FetchDescriptor` par id
+    composite — seuls les titres déjà synchronisés sont jouables), et démarre la file (graine en tête).
+    UI : « Lancer une radio » (icône `antenna.radiowaves.left.and.right`) dans le menu contextuel des
+    titres. Décodage testé (`RadioTests`). **Validé sur iOS 26** contre Navidrome : file de **41 titres**
+    du même genre, artistes variés (Klaus Nomi → Cabrel, Vai, ELP, Bangles, Gainsbourg, Coldplay…),
+    sans aucun timeout.
