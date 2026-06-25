@@ -5,6 +5,7 @@ import SwiftUI
 /// par `PlayerController` au moment de planifier / d'enchaîner les morceaux.
 struct PlaybackSettingsView: View {
     @Environment(\.playerController) private var player
+    @AppStorage("crossfadeDuration")        private var crossfadeDuration: Double = 0
     @AppStorage("replayGainMode")           private var replayGainModeRaw = ReplayGainMode.off.rawValue
     @AppStorage("replayGainClipProtection") private var clipProtection = true
     @AppStorage("replayGainPreampDB")       private var preampDB: Double = 0
@@ -12,9 +13,30 @@ struct PlaybackSettingsView: View {
     private var replayGainMode: ReplayGainMode {
         ReplayGainMode(rawValue: replayGainModeRaw) ?? .off
     }
+    private var crossfadeLabel: String {
+        crossfadeDuration == 0 ? "Sans (gapless)" : String(format: "%.0f s", crossfadeDuration)
+    }
 
     var body: some View {
         Form {
+            // MARK: Crossfade
+            Section {
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    HStack {
+                        Text("Durée du fondu")
+                        Spacer()
+                        Text(crossfadeLabel).techniqueData()
+                    }
+                    Slider(value: $crossfadeDuration, in: 0...12, step: 1)
+                        .tint(Palette.accentCuivre)
+                }
+                .padding(.vertical, Spacing.xs)
+            } header: {
+                Text("Crossfade")
+            } footer: {
+                Text("0 s conserve l'enchaînement sans blanc (gapless). Au-delà, les morceaux se fondent l'un dans l'autre.")
+            }
+
             // MARK: ReplayGain
             Section {
                 Picker("Normalisation", selection: $replayGainModeRaw) {
@@ -55,6 +77,7 @@ struct PlaybackSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         // Retour audio instantané sur le morceau en cours, sans attendre la prochaine transition.
+        .onChange(of: crossfadeDuration) { player?.refreshCrossfade() }
         .onChange(of: replayGainModeRaw) { player?.refreshReplayGain() }
         .onChange(of: clipProtection)    { player?.refreshReplayGain() }
         .onChange(of: preampDB)          { player?.refreshReplayGain() }

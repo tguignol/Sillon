@@ -100,14 +100,24 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   crossfade (fondu enchaîné), normalisation du volume (ReplayGain — nécessite les tags du serveur).
   Cf. Docs/DECISIONS.md #34-35.
 
-- [~] **ReplayGain (normalisation du volume)** *(sur demande, en cours)*
+- [x] **ReplayGain (normalisation du volume)** *(sur demande)*
   Lecture seule des tags de gain serveur : Jellyfin `NormalizationGain` (gain piste, dB) ;
   OpenSubsonic/Navidrome objet `replayGain` (track/album gain en dB + peaks linéaires + base/fallback).
   Champs `Double?` optionnels sur `Track`/`Album` (migration légère), parsés dans les providers,
   upsertés en sync. Modes **Désactivé / Piste / Album** + **pré-ampli** + **protection anti-saturation**
   (réglages `@AppStorage`, écran « Lecture »). Gain appliqué sur `player.volume` (par-source, compatible
-  futur crossfade) au chargement et à chaque transition gapless. Calcul pur testé
-  (`ReplayGainTests`, 11 cas). Cf. Docs/DECISIONS.md #36. **À valider sur iOS 26** contre Navidrome
-  (présence réelle des tags + migration du store existant).
+  crossfade) au chargement et à chaque transition gapless. Calcul pur testé (`ReplayGainTests`, 11 cas).
+  **Validé sur iOS 26** : migration du store existant (15 738 titres préservés), facteur exact 0.3162 à
+  -10 dB, application instantanée au changement de mode. Constat : Navidrome renvoie `replayGain` **vide**
+  (fichiers sans tags RG) ; Jellyfin a `NormalizationGain` sur une partie des titres. Cf. DECISIONS.md #36.
 
-Reste de la Phase 2 : crossfade, et la proposition d'origine (à préciser).
+- [x] **Crossfade (fondu enchaîné)** *(sur demande)*
+  Architecture **dual-deck** (2 `AVAudioPlayerNode` + un `fadeMixer` chacun → `sumMixer` → EQ), rampe
+  **equal-power** 60 Hz dont la progression suit l'horloge audio du deck entrant, bascule atomique de
+  l'index au début du fondu, gestion des fréquences hétérogènes, ReplayGain par-deck. **Aiguillage strict
+  `crossfadeDuration > 0`** : à 0, le chemin **gapless mono-node reste identique** (zéro régression).
+  Réglage `@AppStorage` (0…12 s, écran « Lecture »). Revue adversariale (8 défauts corrigés) +
+  **validé sur iOS 26** (fondu complet « Les Crises de l'âme » → « Carolyne », sans crash).
+  Cf. DECISIONS.md #37.
+
+Reste de la Phase 2 : la proposition d'origine (à préciser).

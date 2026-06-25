@@ -77,6 +77,56 @@ final class PlayerController {
     @ObservationIgnored private var currentFileLength: AVAudioFramePosition = 0
     @ObservationIgnored private var nextFile: AVAudioFile?
     @ObservationIgnored private var nextPreparedIndex: Int?
+
+    // MARK: Crossfade (fondu enchaîné)
+    // Deux "decks" (player + mixer de fondu) sommés avant l'EQ permettent de faire jouer deux morceaux
+    // en parallèle et de croiser leurs gains. À crossfadeDuration == 0, on n'utilise QUE deckA.player
+    // (= le `player` ci-dessus) sur le graphe gapless mono-node existant : zéro régression.
+
+    /// Un deck = un nœud de lecture + son mixer de fondu + l'état du morceau qu'il porte.
+    /// Classe (sémantique de référence) pour muter l'état via le deck actif sans copie.
+    @MainActor private final class Deck {
+        let player: AVAudioPlayerNode
+        let fadeMixer: AVAudioMixerNode
+        var file: AVAudioFile?
+        var trackIndex: Int?
+        // Chaque deck est `stop()` avant (re)planification → son `sampleTime` repart de 0 ; le temps
+        // courant du deck est donc `seekFrame + sampleTime` (pas besoin de mémoriser un frame de départ).
+        var seekFrame: AVAudioFramePosition = 0
+        var fileLength: AVAudioFramePosition = 0
+        var sampleRate: Double = 44_100
+        var replayGain: Float = 1.0                // gain ReplayGain du morceau du deck (player.volume)
+        init(player: AVAudioPlayerNode, fadeMixer: AVAudioMixerNode) {
+            self.player = player
+            self.fadeMixer = fadeMixer
+        }
+    }
+
+    private enum CrossfadeState {
+        case idle
+        /// Fondu en cours : `fromIsA` = deck sortant. La progression est dérivée de l'avancée réelle de
+        /// lecture du deck entrant (horloge audio), pas d'une horloge murale → robuste au gel du RunLoop
+        /// (arrière-plan/interruption) : si l'audio se fige, le fondu se fige aussi puis reprend net.
+        case fading(fromIsA: Bool, duration: TimeInterval)
+    }
+
+    @ObservationIgnored private let deckA: Deck
+    @ObservationIgnored private let deckB: Deck
+    @ObservationIgnored private var activeIsA = true
+    @ObservationIgnored private let sumMixer = AVAudioMixerNode()
+    @ObservationIgnored private var renderFormat: AVAudioFormat?   // format aval figé en mode crossfade
+    @ObservationIgnored private var crossfadeGraphActive = false   // quel graphe physique est câblé
+    @ObservationIgnored private var crossfadeState: CrossfadeState = .idle
+    @ObservationIgnored private var fadeRampTimer: Timer?
+
+    private var activeDeck: Deck { activeIsA ? deckA : deckB }
+    private var idleDeck: Deck { activeIsA ? deckB : deckA }
+
+    /// Durée de fondu (s), relue à la demande depuis les réglages. 0 = enchaînement gapless actuel.
+    private var crossfadeDuration: TimeInterval {
+        max(0, UserDefaults.standard.double(forKey: "crossfadeDuration"))
+    }
+
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private let analyzer = AudioSpectrumAnalyzer(bandCount: 48)
     @ObservationIgnored private var tapInstalled = false
@@ -106,7 +156,18 @@ final class PlayerController {
         self.downloadManager = downloadManager
         let settings = EQSettingsStore.load(container.mainContext)
         self.eq = AVAudioUnitEQ(numberOfBands: settings.bandCount)
+        // deckA réutilise le `player` existant (le chemin gapless l'emploie tel quel) ; deckB est le
+        // second nœud de fondu. Les fadeMixers/sumMixer ne sont câblés qu'en mode crossfade.
+        let fadeA = AVAudioMixerNode()
+        let fadeB = AVAudioMixerNode()
+        let playerB = AVAudioPlayerNode()
+        self.deckA = Deck(player: player, fadeMixer: fadeA)
+        self.deckB = Deck(player: playerB, fadeMixer: fadeB)
         engine.attach(player)
+        engine.attach(playerB)
+        engine.attach(fadeA)
+        engine.attach(fadeB)
+        engine.attach(sumMixer)
         engine.attach(eq)
         EQBands.apply(gainsDB: settings.gainsDB, isEnabled: settings.isEnabled, to: eq)
         engine.mainMixerNode.outputVolume = volume
@@ -126,12 +187,12 @@ final class PlayerController {
     func togglePlayPause() {
         guard audioFile != nil else { return }
         if isPlaying {
-            player.pause()
+            pauseNodes()
             isPlaying = false
             stopTicker()
         } else {
             startEngineIfNeeded()
-            player.play()
+            resumeNodes()
             isPlaying = true
             startTicker()
         }
@@ -139,8 +200,27 @@ final class PlayerController {
         savePlaybackState()
     }
 
+    private func pauseNodes() {
+        if crossfadeGraphActive {
+            // Mettre en pause pendant un fondu dériverait l'horloge murale du fondu : on le termine net.
+            if case .fading = crossfadeState { finishCrossfade() }
+            activeDeck.player.pause()
+        } else {
+            player.pause()
+        }
+    }
+
+    private func resumeNodes() {
+        if crossfadeGraphActive {
+            activeDeck.player.play()
+        } else {
+            player.play()
+        }
+    }
+
     func next() {
         guard currentIndex + 1 < queue.count else { return }
+        endActiveCrossfadeIfNeeded()
         currentIndex += 1
         Task { await loadCurrent(autoplay: true) }
     }
@@ -150,9 +230,16 @@ final class PlayerController {
         if currentTime > 3 || currentIndex == 0 {
             seek(to: 0)
         } else {
+            endActiveCrossfadeIfNeeded()
             currentIndex -= 1
             Task { await loadCurrent(autoplay: true) }
         }
+    }
+
+    /// Coupe net un fondu en cours AVANT un changement de morceau explicite (mode crossfade), de façon
+    /// synchrone : invalide le timer de rampe et fige les decks avant la fenêtre `await` de loadCurrent.
+    private func endActiveCrossfadeIfNeeded() {
+        if crossfadeGraphActive { abortCrossfade() }
     }
 
     // MARK: - File d'attente / aléatoire / répétition
@@ -192,11 +279,18 @@ final class PlayerController {
         case .all: repeatMode = .one
         case .one: repeatMode = .off
         }
+        // Si on passe à « répéter ce titre » pendant un fondu, le terminer net : le morceau entrant
+        // (déjà devenu courant) reste seul à plein gain ; prepareNextDeck (gardé par .one) ne préparera
+        // plus de suivant. Sinon le fondu finirait et sauterait au titre suivant au lieu de répéter.
+        if repeatMode == .one, case .fading = crossfadeState {
+            finishCrossfade()
+        }
     }
 
     /// Saute à un morceau précis de la file.
     func jump(to index: Int) {
         guard queue.indices.contains(index) else { return }
+        endActiveCrossfadeIfNeeded()
         currentIndex = index
         Task { await loadCurrent(autoplay: true) }
     }
@@ -216,6 +310,14 @@ final class PlayerController {
 
     func seek(to seconds: TimeInterval) {
         guard let file = audioFile else { return }
+        if crossfadeGraphActive {
+            seekCrossfade(to: seconds, file: file)
+        } else {
+            seekGapless(to: seconds, file: file)
+        }
+    }
+
+    private func seekGapless(to seconds: TimeInterval, file: AVAudioFile) {
         let wasPlaying = isPlaying
         let frame = AVAudioFramePosition(max(0, seconds) * sampleRate)
         let remaining = file.length - frame
@@ -246,6 +348,36 @@ final class PlayerController {
         Task { await scheduleNextGapless(generation: generation) }
     }
 
+    /// Seek en mode crossfade : annule un fondu en cours et re-planifie le segment sur le deck actif.
+    private func seekCrossfade(to seconds: TimeInterval, file: AVAudioFile) {
+        abortCrossfade()
+        let deck = activeDeck
+        let wasPlaying = isPlaying
+        let frame = AVAudioFramePosition(max(0, seconds) * deck.sampleRate)
+        let remaining = file.length - frame
+        deck.seekFrame = frame
+        deck.player.stop()
+        guard remaining > 0 else { handlePlaybackEnded(); return }
+
+        scheduleGeneration += 1
+        let generation = scheduleGeneration
+        let index = currentIndex
+        deck.player.scheduleSegment(file, startingFrame: frame, frameCount: AVAudioFrameCount(remaining), at: nil,
+                                    completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+        }
+        currentTime = seconds
+        if wasPlaying {
+            startEngineIfNeeded()
+            deck.player.play()
+            isPlaying = true
+            startTicker()
+        }
+        updateNowPlayingInfo()
+        savePlaybackState()
+        Task { await prepareNextDeck(generation: generation) }
+    }
+
     // MARK: - Favori (le cœur du lecteur)
 
     func toggleFavoriteOfCurrent() {
@@ -267,10 +399,15 @@ final class PlayerController {
     }
 
     private func rebuildEQ(bandCount: Int) {
+        if case .fading = crossfadeState { abortCrossfade() }   // éviter un clic en plein fondu
         let format = audioFile?.processingFormat
         let newEQ = AVAudioUnitEQ(numberOfBands: bandCount)
         engine.attach(newEQ)
-        if let format {
+        // Recâble l'EQ selon le graphe courant (sumMixer en amont en crossfade, player en gapless).
+        if crossfadeGraphActive, let renderFmt = renderFormat {
+            engine.connect(sumMixer, to: newEQ, format: renderFmt)
+            engine.connect(newEQ, to: engine.mainMixerNode, format: renderFmt)
+        } else if let format {
             engine.connect(player, to: newEQ, format: format)
             engine.connect(newEQ, to: engine.mainMixerNode, format: format)
         }
@@ -293,41 +430,102 @@ final class PlayerController {
         }
         do {
             let file = try AVAudioFile(forReading: url)
-            audioFile = file
-            sampleRate = file.processingFormat.sampleRate
-            duration = Double(file.length) / sampleRate
-            seekFrame = 0
-            currentTime = 0
-            currentTrackStartFrame = 0
-            currentFileLength = file.length
-            nextFile = nil
-            nextPreparedIndex = nil
-            currentFormatDescription = Self.formatDescription(for: file, track: track)
-
-            connectGraph(format: file.processingFormat)
-            applyReplayGain()           // gain de normalisation du morceau courant (neutre si désactivé)
-            startEngineIfNeeded()
-
-            player.stop()
-            scheduleGeneration += 1
-            let generation = scheduleGeneration
-            let index = currentIndex
-            player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
-            }
-            if autoplay {
-                player.play()
-                isPlaying = true
-                startTicker()
+            if crossfadeDuration > 0 {
+                startCrossfadeLoad(file: file, track: track, autoplay: autoplay)
+            } else {
+                startGaplessLoad(file: file, track: track, autoplay: autoplay)
             }
             updateNowPlayingInfo()
             Task { await loadArtwork(for: track) }
             savePlaybackState()
-            Task { await scheduleNextGapless(generation: generation) }
         } catch {
             errorMessage = "Fichier audio illisible."
             isPlaying = false
         }
+    }
+
+    /// Chemin gapless mono-node (comportement d'origine, inchangé) : un seul `player`, pré-planification
+    /// du suivant sur le même nœud.
+    private func startGaplessLoad(file: AVAudioFile, track: Track, autoplay: Bool) {
+        activeIsA = true            // en gapless, `player` == deckA == deck actif : on garde la cohérence
+        abortCrossfade()
+        audioFile = file
+        sampleRate = file.processingFormat.sampleRate
+        duration = Double(file.length) / sampleRate
+        seekFrame = 0
+        currentTime = 0
+        currentTrackStartFrame = 0
+        currentFileLength = file.length
+        nextFile = nil
+        nextPreparedIndex = nil
+        currentFormatDescription = Self.formatDescription(for: file, track: track)
+
+        connectGraph(format: file.processingFormat)
+        applyReplayGain()           // gain de normalisation du morceau courant (neutre si désactivé)
+        startEngineIfNeeded()
+
+        player.stop()
+        scheduleGeneration += 1
+        let generation = scheduleGeneration
+        let index = currentIndex
+        player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+        }
+        if autoplay {
+            player.play()
+            isPlaying = true
+            startTicker()
+        }
+        Task { await scheduleNextGapless(generation: generation) }
+    }
+
+    /// Chemin crossfade : démarre le morceau sur deckA, prépare le suivant sur deckB (joué et fondu
+    /// à l'approche de la fin par `maybeStartCrossfade`).
+    private func startCrossfadeLoad(file: AVAudioFile, track: Track, autoplay: Bool) {
+        activeIsA = true
+        abortCrossfade()
+        let deck = deckA
+        audioFile = file
+        sampleRate = file.processingFormat.sampleRate
+        duration = Double(file.length) / sampleRate
+        seekFrame = 0
+        currentTime = 0
+        currentTrackStartFrame = 0
+        currentFileLength = file.length
+        nextFile = nil
+        nextPreparedIndex = nil
+        currentFormatDescription = Self.formatDescription(for: file, track: track)
+
+        deck.file = file
+        deck.trackIndex = currentIndex
+        deck.sampleRate = sampleRate
+        deck.seekFrame = 0
+        deck.fileLength = file.length
+        deckB.file = nil
+        deckB.trackIndex = nil
+        deckB.player.stop()
+
+        connectGraph(format: file.processingFormat)   // câble le graphe crossfade + l'entrée de deckA
+        let factor = replayGainFactor(for: track)
+        deck.replayGain = factor
+        deck.player.volume = factor
+        deck.fadeMixer.outputVolume = 1
+        deckB.fadeMixer.outputVolume = 0
+        startEngineIfNeeded()
+
+        deck.player.stop()
+        scheduleGeneration += 1
+        let generation = scheduleGeneration
+        let index = currentIndex
+        deck.player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+        }
+        if autoplay {
+            deck.player.play()
+            isPlaying = true
+            startTicker()
+        }
+        Task { await prepareNextDeck(generation: generation) }
     }
 
     /// Offline-first : fichier local si téléchargé, sinon récupération du flux dans un cache temporaire.
@@ -360,10 +558,54 @@ final class PlayerController {
     // MARK: - Moteur
 
     private func connectGraph(format: AVAudioFormat) {
-        engine.disconnectNodeOutput(player)
-        engine.disconnectNodeOutput(eq)
+        if crossfadeDuration > 0 {
+            connectCrossfadeGraph(activeFileFormat: format)
+        } else {
+            connectGaplessGraph(format: format)
+        }
+    }
+
+    private func disconnectAudioGraph() {
+        for node in [deckA.player, deckB.player, deckA.fadeMixer, deckB.fadeMixer, sumMixer, eq] {
+            engine.disconnectNodeOutput(node)
+        }
+    }
+
+    /// Graphe gapless mono-node : `player → eq → mainMixer` au format du fichier (comportement actuel).
+    private func connectGaplessGraph(format: AVAudioFormat) {
+        crossfadeGraphActive = false
+        disconnectAudioGraph()
         engine.connect(player, to: eq, format: format)
         engine.connect(eq, to: engine.mainMixerNode, format: format)
+    }
+
+    /// Graphe crossfade : `deckA.fadeMixer/deckB.fadeMixer → sumMixer → eq → mainMixer` au format de
+    /// rendu figé ; le deck actif est câblé au format de son fichier (le deck inactif l'est dans
+    /// `prepareNextDeck`). `sumMixer` reste à gain 1.0 pour que le niveau d'un morceau seul soit
+    /// IDENTIQUE au mode gapless ; le fondu equal-power (cos²+sin²=1) garde la puissance constante et,
+    /// pour deux morceaux décorrélés, le pic de sommation reste ≈ unité.
+    private func connectCrossfadeGraph(activeFileFormat: AVAudioFormat) {
+        // Format de rendu TOUJOURS valide : taux matériel s'il est négocié (>0), sinon le taux du
+        // fichier actif (jamais 0). Stéréo float standard ; les fadeMixers convertissent chaque deck.
+        // Le moteur peut ne pas être encore démarré ici (outputFormat = 0 Hz) → repli sur le fichier.
+        let hwRate = engine.outputNode.outputFormat(forBus: 0).sampleRate
+        let rate = hwRate > 0 ? hwRate : activeFileFormat.sampleRate
+        let renderFmt = renderFormat ?? AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2)!
+        renderFormat = renderFmt
+        crossfadeGraphActive = true
+        disconnectAudioGraph()
+        engine.connect(deckA.fadeMixer, to: sumMixer, format: renderFmt)
+        engine.connect(deckB.fadeMixer, to: sumMixer, format: renderFmt)
+        engine.connect(sumMixer, to: eq, format: renderFmt)
+        engine.connect(eq, to: engine.mainMixerNode, format: renderFmt)
+        sumMixer.outputVolume = 1.0
+        engine.connect(activeDeck.player, to: activeDeck.fadeMixer, format: activeFileFormat)
+    }
+
+    /// (Re)câble l'amont d'un deck (player → fadeMixer) au format de son fichier.
+    private func connectDeckInput(_ deck: Deck, fileFormat: AVAudioFormat) {
+        engine.disconnectNodeOutput(deck.player)
+        engine.connect(deck.player, to: deck.fadeMixer, format: fileFormat)
     }
 
     // MARK: - ReplayGain (normalisation du volume)
@@ -373,7 +615,20 @@ final class PlayerController {
     /// crossfade (chaque deck portera son propre gain). Le volume utilisateur reste sur le mainMixer,
     /// l'EQ sur l'eq — aucune des responsabilités n'est mélangée.
     private func applyReplayGain() {
-        player.volume = replayGainFactor(for: currentTrack)
+        let factor = replayGainFactor(for: currentTrack)
+        if crossfadeGraphActive {
+            activeDeck.replayGain = factor
+            activeDeck.player.volume = factor
+            // Rafraîchir aussi le deck entrant déjà préparé (sauf en plein fondu, pour ne pas créer un
+            // saut de gain audible sur un morceau en cours de fondu).
+            if case .idle = crossfadeState, let idx = idleDeck.trackIndex, queue.indices.contains(idx) {
+                let inFactor = replayGainFactor(for: queue[idx])
+                idleDeck.replayGain = inFactor
+                idleDeck.player.volume = inFactor
+            }
+        } else {
+            player.volume = factor   // gapless : deckA.player
+        }
     }
 
     /// Réapplique immédiatement le réglage ReplayGain au morceau en cours (appelé depuis l'UI réglages).
@@ -491,6 +746,162 @@ final class PlayerController {
         nextPreparedIndex = nextIndex
     }
 
+    // MARK: - Crossfade (fondu enchaîné)
+
+    /// Temps courant d'un deck : `seekFrame + sampleTime` (le deck est `stop()` avant planification,
+    /// donc son `sampleTime` repart de 0), borné à la durée du fichier.
+    private func deckCurrentTime(_ deck: Deck) -> TimeInterval {
+        guard let nodeTime = deck.player.lastRenderTime,
+              let playerTime = deck.player.playerTime(forNodeTime: nodeTime) else { return currentTime }
+        let frames = deck.seekFrame + playerTime.sampleTime
+        let dur = deck.sampleRate > 0 ? Double(deck.fileLength) / deck.sampleRate : duration
+        return min(dur, max(0, Double(frames) / deck.sampleRate))
+    }
+
+    /// Durée de fondu effective, bornée à la moitié de chaque morceau (sortant et entrant) pour ne
+    /// jamais fondre plus longtemps qu'un demi-titre.
+    private func effectiveFadeDuration() -> TimeInterval {
+        let inDur = idleDeck.file.map { Double($0.length) / max(1, idleDeck.sampleRate) } ?? crossfadeDuration
+        return min(crossfadeDuration, max(0, duration / 2), max(0, inDur / 2))
+    }
+
+    /// Déclenche un fondu quand on approche de la fin du morceau courant, si le suivant est prêt.
+    private func maybeStartCrossfade() {
+        guard case .idle = crossfadeState else { return }
+        guard crossfadeDuration > 0, repeatMode != .one else { return }
+        guard currentIndex + 1 < queue.count else { return }          // pas de fondu sur le dernier titre
+        guard idleDeck.file != nil, idleDeck.trackIndex == currentIndex + 1 else { return }   // suivant prêt
+        let dur = effectiveFadeDuration()
+        guard dur > 0, duration - currentTime <= dur else { return }
+        beginCrossfade(duration: dur)
+    }
+
+    /// Démarre le fondu : joue le deck entrant, bascule l'identité du morceau (index/titre/durée) au
+    /// début du fondu, et lance la rampe equal-power.
+    private func beginCrossfade(duration dur: TimeInterval) {
+        guard let inFile = idleDeck.file, idleDeck.trackIndex == currentIndex + 1 else { return }
+        let incoming = idleDeck
+        let fromIsA = activeIsA
+
+        incoming.player.play()   // le deck entrant a été planifié (gain 0) dans prepareNextDeck
+
+        // Bascule ATOMIQUE de l'identité du morceau au DÉBUT du fondu (barre/titre = morceau entrant).
+        // La garde `index == currentIndex` de handleTrackEnded rejette alors la complétion tardive du sortant.
+        activeIsA.toggle()
+        currentIndex += 1
+        audioFile = inFile
+        sampleRate = incoming.sampleRate
+        duration = Double(incoming.fileLength) / max(1, incoming.sampleRate)
+        currentTime = 0
+        seekFrame = 0
+        if let track = currentTrack {
+            currentFormatDescription = Self.formatDescription(for: inFile, track: track)
+            Task { await loadArtwork(for: track) }
+        }
+        updateNowPlayingInfo()
+        savePlaybackState()
+
+        crossfadeState = .fading(fromIsA: fromIsA, duration: dur)
+        startFadeRamp()
+    }
+
+    private func startFadeRamp() {
+        fadeRampTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.updateFadeRamp() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        fadeRampTimer = timer
+    }
+
+    private func updateFadeRamp() {
+        guard case let .fading(fromIsA, dur) = crossfadeState else { return }
+        let outDeck = fromIsA ? deckA : deckB
+        let inDeck = fromIsA ? deckB : deckA
+        // Le deck entrant joue depuis 0 : son temps courant EST le temps écoulé du fondu.
+        let elapsed = deckCurrentTime(inDeck)
+        let x = dur > 0 ? min(1, max(0, elapsed / dur)) : 1
+        let (gOut, gIn) = equalPowerGains(x)
+        outDeck.fadeMixer.outputVolume = gOut
+        inDeck.fadeMixer.outputVolume = gIn
+        if x >= 1 { finishCrossfade() }
+    }
+
+    /// Rampe à puissance constante (cos²+sin²=1) : pas de creux de -3 dB au milieu du fondu.
+    private func equalPowerGains(_ x: Double) -> (out: Float, in: Float) {
+        let c = x * .pi / 2
+        return (Float(cos(c)), Float(sin(c)))
+    }
+
+    /// Termine le fondu : arrête/​libère le deck sortant, gains nets, prépare le morceau d'après.
+    private func finishCrossfade() {
+        guard case let .fading(fromIsA, _) = crossfadeState else { return }
+        fadeRampTimer?.invalidate()
+        fadeRampTimer = nil
+        crossfadeState = .idle
+        let outgoing = fromIsA ? deckA : deckB
+        outgoing.player.stop()
+        outgoing.file = nil
+        outgoing.trackIndex = nil
+        activeDeck.fadeMixer.outputVolume = 1
+        outgoing.fadeMixer.outputVolume = 0
+        Task { await prepareNextDeck(generation: scheduleGeneration) }
+    }
+
+    /// Annule un fondu en cours : remet le deck actif à plein, libère/​arrête le deck inactif.
+    private func abortCrossfade() {
+        fadeRampTimer?.invalidate()
+        fadeRampTimer = nil
+        crossfadeState = .idle
+        activeDeck.fadeMixer.outputVolume = 1
+        idleDeck.fadeMixer.outputVolume = 0
+        idleDeck.player.stop()
+        idleDeck.file = nil
+        idleDeck.trackIndex = nil
+    }
+
+    /// Pré-planifie le morceau suivant sur le deck inactif (muet jusqu'au fondu). Le fadeMixer convertit
+    /// les fréquences hétérogènes, donc pas de garde de sample-rate ici (contrairement au gapless).
+    private func prepareNextDeck(generation: Int) async {
+        guard generation == scheduleGeneration, crossfadeGraphActive, repeatMode != .one else { return }
+        let nextIndex = currentIndex + 1
+        guard nextIndex < queue.count else { return }
+        let deck = idleDeck
+        guard deck.trackIndex != nextIndex else { return }   // déjà prêt
+        let nextTrack = queue[nextIndex]
+        guard let url = await resolveURL(for: nextTrack) else { return }
+        guard generation == scheduleGeneration, crossfadeGraphActive else { return }
+        guard let file = try? AVAudioFile(forReading: url) else { return }
+
+        deck.player.stop()
+        connectDeckInput(deck, fileFormat: file.processingFormat)
+        deck.file = file
+        deck.trackIndex = nextIndex
+        deck.sampleRate = file.processingFormat.sampleRate
+        deck.seekFrame = 0
+        deck.fileLength = file.length
+        let factor = replayGainFactor(for: nextTrack)
+        deck.replayGain = factor
+        deck.player.volume = factor
+        deck.fadeMixer.outputVolume = 0   // muet jusqu'au début du fondu
+        deck.player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.handleTrackEnded(index: nextIndex, generation: generation) }
+        }
+        // On ne play() pas encore : beginCrossfade démarrera ce deck au bon moment.
+    }
+
+    /// Appelé depuis l'UI quand la durée de crossfade change. Si on franchit la frontière 0↔>0 pendant
+    /// la lecture, on recâble le graphe en rechargeant le morceau courant à sa position.
+    func refreshCrossfade() {
+        guard audioFile != nil, (crossfadeDuration > 0) != crossfadeGraphActive else { return }
+        let pos = currentTime
+        let wasPlaying = isPlaying
+        Task {
+            await loadCurrent(autoplay: wasPlaying)
+            if pos > 1 { seek(to: pos) }
+        }
+    }
+
     private func handlePlaybackEnded() {
         switch repeatMode {
         case .one:
@@ -530,7 +941,10 @@ final class PlayerController {
 
     private func tick() {
         guard isPlaying else { return }
-        if let nodeTime = player.lastRenderTime, let playerTime = player.playerTime(forNodeTime: nodeTime) {
+        if crossfadeGraphActive {
+            currentTime = deckCurrentTime(activeDeck)
+            maybeStartCrossfade()
+        } else if let nodeTime = player.lastRenderTime, let playerTime = player.playerTime(forNodeTime: nodeTime) {
             // `sampleTime` court à travers les fichiers pré-planifiés → on retranche le départ du morceau.
             let frames = seekFrame + (playerTime.sampleTime - currentTrackStartFrame)
             currentTime = min(duration, max(0, Double(frames) / sampleRate))

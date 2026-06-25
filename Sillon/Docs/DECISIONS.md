@@ -309,3 +309,32 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     `pow(10, dB/20)`, anti-clipping `factor ≤ 1/peak` sinon cap à 0 dB si peak inconnu) est couvert par
     `SillonTests/ReplayGainTests`. Appliqué au chargement **et** à chaque transition gapless
     (`advanceGapless`, sinon le morceau suivant garderait le gain du précédent).
+
+37. **Crossfade (fondu enchaîné) — architecture « dual-deck », gapless préservé à l'identique.** Pour
+    chevaucher deux morceaux il faut deux sources simultanées : on ajoute un **deuxième `AVAudioPlayerNode`**
+    et on modélise deux **decks** (`Deck` = player + son `AVAudioMixerNode` de fondu + l'état du morceau).
+    Graphe crossfade : `deckA.fadeMixer / deckB.fadeMixer → sumMixer → eq → mainMixer`. **Décision clé
+    anti-régression** : aiguillage strict `if crossfadeDuration > 0`. À 0, on garde le **graphe gapless
+    mono-node d'origine** (`player → eq → mainMixer`, `player` == `deckA.player`) et tout le code gapless
+    (seek/shuffle/repeat/advanceGapless) **inchangé** — zéro régression. Le graphe physique n'est recâblé
+    qu'au franchissement de la frontière 0↔>0.
+    **Rampe equal-power** (cos/sin, `out²+in²=1`, pas de creux de -3 dB) pilotée par un timer dédié à
+    60 Hz ; sa **progression est dérivée de l'horloge audio du deck entrant** (pas d'une horloge murale)
+    → robuste au gel du RunLoop (arrière-plan/interruption). **Bascule atomique** de l'identité du morceau
+    (index/titre/durée/`activeIsA`) au **début** du fondu : la barre de progression suit le morceau entrant,
+    et la garde `index == currentIndex` de `handleTrackEnded` rejette la complétion tardive du sortant.
+    **Temps courant per-deck** en crossfade (`seekFrame + sampleTime`, chaque deck étant `stop()` avant
+    planification) ; le modèle gapless cumulé reste pour le mode 0.
+    **Niveau** : `sumMixer` à **1.0** (un morceau seul sort au même niveau qu'en gapless) ; le fondu
+    equal-power garde la puissance constante et, pour deux morceaux décorrélés, le pic de sommation reste
+    ≈ unité. **Format de rendu** toujours valide (taux matériel si négocié, sinon taux du fichier — jamais
+    0 Hz) ; les `fadeMixer` convertissent les fréquences hétérogènes (crossfade inter-sample-rate géré).
+    **ReplayGain** par-deck : chaque `deck.player.volume` porte le gain de SON morceau (compose avec la
+    rampe sur le `fadeMixer`). **Interruptions** : tout changement explicite (next/previous/jump/seek,
+    shuffle/déplacement, repeat « une ») appelle `abortCrossfade()` synchrone pour figer le fondu avant la
+    fenêtre `await`. **Réglage** `@AppStorage("crossfadeDuration")` (0…12 s) ; `refreshCrossfade()` recâble
+    en pleine lecture au franchissement de 0↔>0 (bref rechargement accepté — action rare).
+    **Revue adversariale** (5 lentilles, 8 défauts confirmés tous corrigés) puis **validé sur iOS 26** :
+    fondu equal-power complet « Les Crises de l'âme » → « Carolyne » (log : `out/in` de 1/0 → 0.7/0.7 →
+    0/1, puis bascule), sans crash (un crash initial dû à un `renderFormat` 0 Hz quand le moteur était
+    démarré avant le câblage a été corrigé : on câble avant de démarrer, comme le gapless).
