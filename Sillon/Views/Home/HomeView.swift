@@ -25,6 +25,7 @@ struct HomeView: View {
             }
             .navigationTitle("Accueil")
             .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
+            .navigationDestination(for: Playlist.self) { PlaylistDetailView(playlist: $0) }
         }
     }
 
@@ -54,7 +55,10 @@ struct HomeView: View {
                 if !playlists.isEmpty {
                     HomeSection(title: "Playlists") {
                         ForEach(playlists.prefix(12)) { playlist in
-                            PlaylistChip(playlist: playlist)
+                            NavigationLink(value: playlist) {
+                                PlaylistChip(playlist: playlist)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }

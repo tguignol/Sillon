@@ -213,3 +213,23 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     par `SillonTests/PlaylistActionsTests`. Validé sur iOS 26 (création, lecture, favoris). Note de
     test : la saisie clavier synthétique sur le simulateur est peu fiable (menus d'accents) — sans
     impact sur l'app, à valider au clavier réel.
+
+## Commit 7 — Polish & revue finale
+
+31. **Revue finale multi-agents : corrections retenues, faux positifs écartés.** Une revue par
+    dimensions (correction, concurrence, UI, lecture-seule serveur) avec vérification adversariale a
+    été passée sur le code Phase 1.
+    - **Confirmé** : la **lecture-seule serveur** est garantie par construction — le protocole
+      `ServerProvider` ne contient aucune méthode d'écriture (pas de star/unstar/create/update/delete).
+    - **Corrigé** : extension de fichier vide si `format` ne contient que des espaces
+      (`DownloadFileLayout`) ; positions de playlist réindexées après suppression
+      (`PlaylistActions.removeItems`) ; playlists de l'Accueil rendues navigables (`HomeView`) ; menu
+      contextuel ajouté sur les titres d'une playlist (`PlaylistDetailView`) ; icône serveur passée à
+      `Palette.accentCuivre` (`ServerRowView`).
+    - **Écarté (faux positif)** : la « data race » signalée sur le cache de providers de
+      `PlayerController` n'en est pas une — la classe est `@MainActor`, le cache est lu/écrit de façon
+      synchrone sur le MainActor (sérialisé) ; la compilation en concurrence stricte le confirme.
+    - **Différé (stylistique)** : remplacer systématiquement `.secondary` par `Palette.texteSourdine`
+      pour le texte secondaire — `.secondary` reste idiomatique et s'adapte ; sweep optionnel de polish.
+    - **Accepté tel quel** : pas de `deinit` invalidant le `Timer` du lecteur — `PlayerController` vit
+      le temps de l'app (instance unique), donc pas de fuite en pratique.

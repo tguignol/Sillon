@@ -33,8 +33,14 @@ enum PlaylistActions {
     }
 
     static func removeItems(at offsets: IndexSet, from ordered: [PlaylistItem], playlist: Playlist, context: ModelContext) {
+        let removed = Set(offsets)
         for index in offsets where ordered.indices.contains(index) {
             context.delete(ordered[index])
+        }
+        // Réindexe les positions restantes de façon contiguë (pas de trous).
+        let survivors = ordered.enumerated().filter { !removed.contains($0.offset) }.map(\.element)
+        for (position, item) in survivors.enumerated() {
+            item.position = position
         }
         playlist.updatedAt = .now
         try? context.save()

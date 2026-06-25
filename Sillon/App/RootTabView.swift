@@ -1,9 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Squelette de navigation. Accueil et Bibliothèque sont désormais réels (commit "Synchronisation +
-/// Bibliothèque") ; Favoris reste un placeholder jusqu'au commit "Favoris + Playlists". L'onglet
-/// Réglages héberge la gestion des serveurs (commit "Gestion des serveurs + providers réseau").
+/// Squelette de navigation : Accueil, Bibliothèque, Favoris, Réglages, plus un mini-lecteur ancré
+/// au-dessus de la barre d'onglets dès qu'un morceau est en cours.
 ///
 /// Note multiplateforme : `TabView` fonctionne nativement sur iOS et macOS. Sur macOS/iPadOS,
 /// une navigation par `NavigationSplitView` (sidebar façon Apple Music) sera évaluée plus tard —
@@ -12,6 +11,8 @@ struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.playerController) private var playerController
     @State private var showPlayer = false
+
+    private var hasNowPlaying: Bool { playerController?.currentTrack != nil }
 
     var body: some View {
         TabView {
@@ -31,27 +32,39 @@ struct RootTabView: View {
                 SettingsRootView()
             }
         }
+        .modifier(NowPlayingAccessory(show: hasNowPlaying) { showPlayer = true })
         #if os(iOS)
-        // Slot natif iOS 26 au-dessus de la barre d'onglets (façon Apple Music) : le mini-lecteur
-        // n'empiète plus sur les onglets.
-        .tabViewBottomAccessory {
-            if playerController?.currentTrack != nil {
-                NowPlayingBar { showPlayer = true }
-            }
-        }
         .fullScreenCover(isPresented: $showPlayer) { PlayerView() }
         #else
-        .safeAreaInset(edge: .bottom) {
-            if playerController?.currentTrack != nil {
-                NowPlayingBar { showPlayer = true }
-                    .padding(.vertical, Spacing.s)
-                    .background(.thinMaterial)
-            }
-        }
         .sheet(isPresented: $showPlayer) { PlayerView().frame(minWidth: 360, minHeight: 600) }
         #endif
         #if DEBUG
         .task { await DebugBootstrap.runIfRequested(context: modelContext) }
+        #endif
+    }
+}
+
+/// Ancre le mini-lecteur uniquement quand un morceau est en cours — évite la capsule vide quand
+/// rien ne joue. iOS 26 : slot natif `tabViewBottomAccessory` ; macOS : `safeAreaInset`.
+private struct NowPlayingAccessory: ViewModifier {
+    let show: Bool
+    let onTap: () -> Void
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if show {
+            content.tabViewBottomAccessory { NowPlayingBar(onTap: onTap) }
+        } else {
+            content
+        }
+        #else
+        content.safeAreaInset(edge: .bottom) {
+            if show {
+                NowPlayingBar(onTap: onTap)
+                    .padding(.vertical, Spacing.s)
+                    .background(.thinMaterial)
+            }
+        }
         #endif
     }
 }

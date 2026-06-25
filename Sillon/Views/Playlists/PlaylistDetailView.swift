@@ -28,6 +28,7 @@ struct PlaylistDetailView: View {
                             TrackRowView(track: track, showsTrackNumber: false)
                                 .contentShape(Rectangle())
                                 .onTapGesture { player?.play(queue: orderedTracks, startAt: index) }
+                                .trackContextMenu(track: track, context: context)
                         }
                     }
                     .onDelete { offsets in

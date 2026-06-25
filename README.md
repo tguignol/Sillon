@@ -1,70 +1,75 @@
-# Sillon — Commit 3/7 de la Phase 1
+# Sillon — Phase 1 complète
 
-App de lecture musicale connectée à des serveurs personnels (Jellyfin, Navidrome/Subsonic,
-fichiers locaux), SwiftUI multiplateforme (iOS 26 / macOS Tahoe), target unique.
+Lecteur musical SwiftUI multiplateforme (iOS 26 / macOS Tahoe), target unique, connecté à des
+serveurs personnels : **Jellyfin**, **Navidrome / Subsonic**, et **fichiers locaux**.
 
-Ce commit ajoute le **moteur de synchronisation** et la **bibliothèque réelle** (écrans Accueil +
-Bibliothèque) par-dessus les fondations des commits 1 et 2 (toujours présentes).
-Voir `Sillon/Docs/ROADMAP.md` pour la suite.
+La Phase 1 (cœur de l'app) est terminée — voir `Sillon/Docs/ROADMAP.md`. Tout a été **validé sur le
+simulateur iOS 26.5 contre de vrais serveurs** (synchro de ~16 k titres, téléchargements, lecture
+offline avec égaliseur, favoris, playlists).
 
-## Contenu ajouté par ce commit
+## Fonctionnalités (commits 1 → 7)
+
+- **Serveurs** : ajout Jellyfin / Navidrome-Subsonic / dossier local, test de connexion, secrets en
+  Keychain (jamais en base ni sur GitHub).
+- **Synchronisation** : moteur full/delta, upsert SwiftData, horodatage + curseur, pagination
+  (grosses bibliothèques), progression.
+- **Bibliothèque & Accueil** : Artistes / Albums / Titres / Playlists, écran d'accueil « disquaire »
+  (sections horizontales), pochettes réelles avec repli placeholder.
+- **Téléchargements** : `DownloadManager` (URLSession de fond), arborescence serveur
+  `<Serveur>/<Artiste>/<Album>/<NN - Titre>.<ext>`, file visible, lecture offline-first.
+- **Lecteur + Égaliseur** : `AVAudioEngine` (player → `AVAudioUnitEQ` → mixer), écran lecteur avec
+  *groove ring* signature, barre -10s/+10s, cœur favori, sélecteur AirPlay, mini-lecteur ancré,
+  égaliseur 6-12 bandes (sauvegarde du dernier état).
+- **Favoris & Playlists** : toggle cœur partout, onglet Favoris + « Mixer les favoris », CRUD
+  playlists locales + réordonnancement glisser-déposer.
+
+> **Lecture seule côté serveur** : l'app ne modifie ni n'efface jamais de données sur les serveurs.
+> Favoris et playlists sont **locaux à l'app**.
+
+## Architecture (dossiers sous `Sillon/`)
 
 ```
-DesignSystem/
-  Theme.swift                     → palette / typo / espacement (concrétise Docs/DESIGN_SYSTEM.md)
-Sync/
-  LibrarySyncService.swift        → moteur full/delta : upsert SwiftData, horodatage + curseur, progression
-Views/Home/
-  HomeView.swift                  → accueil "disquaire" : sections horizontales à tailles inégales
-Views/Library/
-  LibraryRootView.swift           → sélecteur Artistes / Albums / Titres / Playlists
-  ArtistsListView.swift           → liste artistes + détail (albums en grille)
-  AlbumsGridView.swift            → grille albums + détail (liste des morceaux)
-  TracksListView.swift            → liste à plat de tous les titres
-  PlaylistsListView.swift         → playlists locales (création au commit 6)
-Views/Shared/
-  CoverArtView.swift              → pochette : artwork réel + fallback placeholder cuivré
-  ArtworkLoader.swift             → résolution/cache des URLs de pochette (providers authentifiés)
-  AlbumCard.swift, TrackRowView.swift, Formatters.swift, PreviewData.swift
+App/            SillonApp, RootTabView, SillonAppDelegate (iOS), DebugBootstrap (DEBUG)
+Models/         ServerAccount, Artist, Album, Track, Playlist(+Item), DownloadTask, EQSettings
+Networking/     ServerProvider (protocole acteur) + Jellyfin / Subsonic / Local + factory
+Persistence/    ModelContainerFactory (schéma SwiftData)
+Security/       KeychainStore
+Sync/           LibrarySyncService
+Downloads/      DownloadManager, DownloadSessionDelegate, DownloadFileLayout
+Player/         PlayerController, EQBands, EQSettingsStore
+Favorites/      Favoritable
+Playlists/      PlaylistActions
+DesignSystem/   Theme (palette / typo / espacement)
+Views/          App / Servers / Settings / Library / Home / Favorites / Playlists / Player / Downloads / Shared
+Docs/           ROADMAP, DECISIONS (#1-31), DESIGN_SYSTEM
 ```
 
-Modifiés : `ViewModels/ServerListViewModel.swift` (pilote le moteur de sync), `Views/Servers/
-ServerRowView.swift` (barre de progression réelle), `App/RootTabView.swift` (Accueil + Bibliothèque
-câblés), `App/SillonApp.swift` (injection de l'`ArtworkLoader`).
+## Compilation & tests
 
-**Désormais, "Synchroniser" persiste réellement la bibliothèque** : artistes, albums et morceaux
-apparaissent dans les onglets Accueil et Bibliothèque après une synchro réussie (cf. `Docs/DECISIONS.md`
-#14 à #19 pour les choix de ce commit). Les *favoris* sont affichés en lecture seule ; leur toggle
-et l'écran Favoris dédié arrivent au commit 6.
-
-## Compilation vérifiée
-
-Ce commit a été compilé avec succès sur les deux plateformes (Xcode 26 / SDK iOS 26.5 et macOS 26.5) :
+Vérifié sur Xcode 26 (SDK iOS 26.5 / macOS 26.5) :
 
 ```
 xcodebuild build -scheme Sillon -destination 'platform=macOS'
 xcodebuild build -scheme Sillon -destination 'generic/platform=iOS Simulator'
+xcodebuild test  -scheme Sillon -destination 'platform=macOS' -only-testing:SillonTests
 ```
 
-Note : un `AppIcon.appiconset` vide (placeholder, sans visuel) a été ajouté pour débloquer le build
-iOS — le projet le réclamait sans le fournir (cf. `Docs/DECISIONS.md` #19). Une vraie icône de marque
-sera proposée à l'étape de polish.
+Le `.xcodeproj` utilise des **groupes synchronisés au système de fichiers** : les nouveaux fichiers
+Swift déposés dans les dossiers sont repris automatiquement. Après un `git pull`, ouvrez le projet et
+**Cmd + R**.
 
-## Récupérer ce commit dans Xcode
+Tests unitaires (`SillonTests`) : moteur de sync, arborescence de téléchargement, bandes EQ, actions
+de playlist. Tests d'intégration réseau (`ServerIntegrationTests`) **désactivés par défaut** (lus
+depuis l'environnement, aucun secret committé).
 
-Le projet `Sillon.xcodeproj` existe et utilise des **groupes synchronisés au système de fichiers**
-(`PBXFileSystemSynchronizedRootGroup`) : les nouveaux fichiers Swift déposés dans les dossiers sont
-repris automatiquement par Xcode, sans manipulation du `.xcodeproj`. Après un `git pull`, ouvrez le
-projet et **Cmd + R**.
+### À vérifier côté projet Xcode
 
-### Capacités à vérifier côté projet Xcode
-
-- macOS : Signing & Capabilities ▸ App Sandbox ▸ Network ▸ **Outgoing Connections (Client)**.
-- Si votre serveur Jellyfin/Navidrome est en `http://` : exception App Transport Security
-  (onglet Info de la target ▸ Allow Local Networking = YES / Allow Arbitrary Loads selon le cas).
-- Bundle Identifier unique, aligné avec `service` dans `Security/KeychainStore.swift`.
+- macOS : App Sandbox ▸ Network ▸ Outgoing Connections (Client) (déjà dans les entitlements).
+- ATS : `NSAllowsArbitraryLoads` est activé (serveurs `http://` / cert auto-signé).
+- iOS : `UIBackgroundModes: audio` (lecture en arrière-plan).
+- Bundle Identifier aligné avec `service` dans `Security/KeychainStore.swift`.
 
 ## Et après ?
 
-Le commit 4 (Téléchargements) enchaîne sur cette bibliothèque : `DownloadManager` en arrière-plan,
-reproduction de l'arborescence serveur, lecture offline-first. Voir `Sillon/Docs/ROADMAP.md`.
+Phase 1 terminée → **pause pour validation**. La Phase 2 (proposée, non développée) ne sera lancée
+qu'après accord explicite.

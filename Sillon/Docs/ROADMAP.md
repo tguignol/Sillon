@@ -50,9 +50,16 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
   « Ajouter à une playlist ». Mini-lecteur déplacé dans le slot natif iOS 26 `tabViewBottomAccessory`.
   **Validé sur iOS 26.5** (cf. Docs/DECISIONS.md #29-30).
 
-- [ ] **Commit 7 — Polish & revue finale Phase 1**
-  Cohérence visuelle inter-écrans, vérification des Previews, README d'exécution finalisé.
-  → Pause pour validation avant d'attaquer la Phase 2.
+- [x] **Commit 7 — Polish & revue finale Phase 1** *(celui-ci)*
+  Revue multi-agents du code (correction, concurrence, UI, lecture-seule serveur) avec vérification
+  adversariale ; corrections appliquées (cf. Docs/DECISIONS.md #31) ; mini-lecteur masqué quand rien
+  ne joue ; README d'exécution finalisé. **Lecture-seule serveur confirmée par la revue.**
+  → Phase 1 terminée. Pause pour validation avant d'attaquer la Phase 2.
+
+## Phase 1 — terminée ✅
+
+Les 7 commits sont faits et validés sur iOS 26.5 contre les vrais serveurs (Jellyfin + Navidrome).
+Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant Phase 2.
 
 ## Phase 2 (proposée, non développée)
 

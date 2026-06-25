@@ -61,5 +61,7 @@ struct PlaylistActionsTests {
 
         #expect(playlist.items.count == 2)
         #expect(playlist.items.compactMap { $0.track?.title }.sorted() == ["Titre 0", "Titre 2"])
+        // Positions réindexées de façon contiguë (pas de trou) après suppression.
+        #expect(playlist.items.map(\.position).sorted() == [0, 1])
     }
 }

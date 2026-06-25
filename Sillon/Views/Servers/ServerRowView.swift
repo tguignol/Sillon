@@ -9,7 +9,7 @@ struct ServerRowView: View {
         HStack(spacing: 12) {
             Image(systemName: server.type.systemImageName)
                 .font(.title3)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Palette.accentCuivre)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {

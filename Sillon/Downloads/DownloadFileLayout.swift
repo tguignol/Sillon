@@ -29,7 +29,9 @@ enum DownloadFileLayout {
         let server = sanitize(track.server?.name ?? "Serveur")
         let artist = sanitize(track.album?.artist?.name ?? track.artistNameSnapshot ?? "Artiste inconnu")
         let album = sanitize(track.album?.title ?? "Album inconnu")
-        let ext = (track.format.flatMap { $0.isEmpty ? nil : $0 }) ?? "audio"
+        // Trim avant de décider : un format ne contenant que des espaces ne doit pas devenir l'extension.
+        let trimmedFormat = track.format?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let ext = (trimmedFormat?.isEmpty == false) ? trimmedFormat! : "audio"
 
         let stem: String
         if let number = track.trackNumber {
