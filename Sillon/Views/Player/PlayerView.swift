@@ -23,7 +23,15 @@ struct PlayerView: View {
             VStack(spacing: Spacing.xl) {
                 topBar
                 Spacer(minLength: 0)
-                artwork(track: track, player: player)
+                // Les paroles remplacent la pochette/​spectre (à la Apple Music) : le transport reste
+                // accessible dessous, sans fermer les paroles.
+                if showLyrics {
+                    LyricsView(track: track)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .transition(.opacity)
+                } else {
+                    artwork(track: track, player: player)
+                }
                 titles(track: track, format: player.currentFormatDescription)
                 progressSection(player: player)
                 transport(player: player)
@@ -35,9 +43,9 @@ struct PlayerView: View {
             .padding(.vertical, Spacing.l)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Palette.fondNoir)
+            .animation(.easeInOut(duration: 0.25), value: showLyrics)
             .sheet(isPresented: $showEQ) { EQView() }
             .sheet(isPresented: $showQueue) { QueueView() }
-            .sheet(isPresented: $showLyrics) { LyricsView(track: track) }
         } else {
             ContentUnavailableView("Rien en lecture", systemImage: "music.note")
                 .background(Palette.fondNoir)
@@ -199,8 +207,9 @@ struct PlayerView: View {
                 Image(systemName: player.repeatMode.systemImage)
                     .foregroundStyle(player.repeatMode.isActive ? Palette.accentCuivre : Palette.texteIvoire)
             }
-            Button { showLyrics = true } label: {
-                Image(systemName: "quote.bubble").foregroundStyle(Palette.texteIvoire)
+            Button { showLyrics.toggle() } label: {
+                Image(systemName: "quote.bubble")
+                    .foregroundStyle(showLyrics ? Palette.accentCuivre : Palette.texteIvoire)
             }
             Button { showQueue = true } label: {
                 Image(systemName: "list.bullet").foregroundStyle(Palette.texteIvoire)

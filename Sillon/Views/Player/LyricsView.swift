@@ -4,45 +4,30 @@ import SwiftUI
 /// - Synchronisées : surligne la ligne courante selon `player.currentTime`, auto-défile, et permet
 ///   un seek au tap sur une ligne.
 /// - Non synchronisées : simple texte défilable.
-/// Présenté en sheet depuis `PlayerView`.
+/// Intégré DANS le lecteur (à la place de la pochette) pour garder le transport accessible.
 struct LyricsView: View {
     let track: Track
 
     @Environment(\.lyricsLoader) private var loader
-    @Environment(\.dismiss) private var dismiss
     @State private var lyrics: TrackLyrics?
     @State private var didLoad = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let lyrics, !lyrics.lines.isEmpty {
-                    if lyrics.synced {
-                        SyncedLyricsView(lines: lyrics.lines)
-                    } else {
-                        PlainLyricsView(lines: lyrics.lines)
-                    }
-                } else if didLoad {
-                    ContentUnavailableView("Pas de paroles", systemImage: "quote.bubble")
+        Group {
+            if let lyrics, !lyrics.lines.isEmpty {
+                if lyrics.synced {
+                    SyncedLyricsView(lines: lyrics.lines)
                 } else {
-                    ProgressView()
-                        .controlSize(.large)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    PlainLyricsView(lines: lyrics.lines)
                 }
+            } else if didLoad {
+                ContentUnavailableView("Pas de paroles", systemImage: "quote.bubble")
+            } else {
+                ProgressView()
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .navigationTitle("Paroles")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("OK") { dismiss() } }
-            }
-            .background(Palette.fondNoir)
         }
-        #if os(iOS)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        #endif
         .task(id: track.id) {
             didLoad = false
             lyrics = await loader.lyrics(for: track)
@@ -93,7 +78,7 @@ private struct SyncedLyricsView: View {
                     }
                 }
                 .padding(.horizontal, Spacing.xl)
-                .padding(.vertical, 120)   // marges pour centrer la 1re et la dernière ligne
+                .padding(.vertical, 40)   // marges pour centrer la 1re et la dernière ligne (zone intégrée)
             }
             .scrollIndicators(.hidden)
             .onChange(of: active) { _, newValue in
