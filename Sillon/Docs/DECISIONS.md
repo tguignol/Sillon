@@ -432,3 +432,14 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     Réglages (Picker menu). **Validé sur iOS 26** : bascule Sombre↔Clair sur Réglages, Accueil et Lecteur
     (fonds, texte, accents, transport, spectre, mini-lecteur, onglets) — lisible et cohérent.
     → **Phase 3 terminée** (minuterie, radio, navigation, apparence).
+
+44. **Icône de l'app — vinyle « Sillon », générée maison (libre de droits), claire + sombre.** Motif :
+    disque vinyle + **sillons** (le nom de l'app) + double note de musique, palette cuivre/teal/sombre.
+    Dessinée par programme (Pillow) → originale, **aucun droit tiers** ; script reproductible
+    `Tools/generate_app_icon.py` (aucune toolchain SVG/cairo, qui échouait sur cette machine). **Variantes
+    d'apparence iOS 18** dans l'asset catalog : `AppIcon-ios-light.png` (défaut/clair, fond crème + vinyle
+    clair) et `AppIcon-ios-dark.png` (`appearances: luminosity dark`, fond sombre + vinyle foncé) —
+    confirmé compilé via `assetutil` (`UIAppearanceDark`). Tailles macOS générées depuis la variante
+    foncée. **Validé sur iOS 26** : variante claire affichée (simulateur en clair) ; la variante sombre
+    est correctement compilée et s'affichera en mode sombre **sur appareil réel** (le springboard du
+    simulateur ne rend pas les icônes sombres tierces — limite connue).
