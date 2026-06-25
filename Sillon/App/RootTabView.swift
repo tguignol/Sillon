@@ -9,6 +9,8 @@ import SwiftData
 /// une navigation par `NavigationSplitView` (sidebar façon Apple Music) sera évaluée plus tard —
 /// décision différée, la `TabView` reste cohérente entre plateformes pour l'instant.
 struct RootTabView: View {
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         TabView {
             Tab("Accueil", systemImage: "house.fill") {
@@ -27,6 +29,9 @@ struct RootTabView: View {
                 SettingsRootView()
             }
         }
+        #if DEBUG
+        .task { await DebugBootstrap.runIfRequested(context: modelContext) }
+        #endif
     }
 }
 

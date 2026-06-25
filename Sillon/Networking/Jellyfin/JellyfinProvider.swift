@@ -20,12 +20,23 @@ actor JellyfinProvider: ServerProvider {
     private var cachedToken: String?
     private var cachedUserID: String?
 
-    init(serverID: UUID, baseURL: URL, username: String, urlSession: URLSession = .shared) {
+    init(serverID: UUID, baseURL: URL, username: String, urlSession: URLSession? = nil) {
         self.serverID = serverID
         self.baseURL = baseURL
         self.username = username
-        self.urlSession = urlSession
+        self.urlSession = urlSession ?? Self.makeDefaultSession()
         self.deviceID = Self.persistentDeviceID()
+    }
+
+    /// Session par défaut tolérante aux serveurs auto-hébergés lents/distants : on relève le délai
+    /// d'expiration par requête (le défaut de 60 s ne suffit pas pour une page de bibliothèque sur
+    /// un serveur domestique via internet) et on attend la connectivité plutôt que d'échouer aussitôt.
+    private static func makeDefaultSession() -> URLSession {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 90
+        config.timeoutIntervalForResource = 600
+        config.waitsForConnectivity = true
+        return URLSession(configuration: config)
     }
 
     // MARK: - Authentification
@@ -191,34 +202,52 @@ actor JellyfinProvider: ServerProvider {
     private func fetchItems(includeItemTypes: String, extraQuery: [String: String] = [:]) async throws -> [JellyfinBaseItem] {
         guard let userID = cachedUserID else { throw ProviderError.missingCredentials }
 
-        guard var components = URLComponents(url: baseURL.appending(path: "Users/\(userID)/Items"), resolvingAgainstBaseURL: false) else {
-            throw ProviderError.invalidURL
+        // Pagination : on récupère la bibliothèque par pages de `pageSize` (`StartIndex`/`Limit`)
+        // plutôt qu'en une seule requête de 5000 éléments — cette dernière, avec `MediaStreams`,
+        // dépasse le délai d'expiration sur un vrai serveur domestique (timeout -1001 observé en test
+        // réel). On s'arrête dès qu'une page est incomplète ou que le total annoncé est atteint.
+        let pageSize = 500
+        var startIndex = 0
+        var collected: [JellyfinBaseItem] = []
+
+        while true {
+            guard var components = URLComponents(url: baseURL.appending(path: "Users/\(userID)/Items"), resolvingAgainstBaseURL: false) else {
+                throw ProviderError.invalidURL
+            }
+            var query: [URLQueryItem] = [
+                URLQueryItem(name: "Recursive", value: "true"),
+                URLQueryItem(name: "IncludeItemTypes", value: includeItemTypes),
+                URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName"),
+                URLQueryItem(name: "SortBy", value: "SortName"),
+                URLQueryItem(name: "StartIndex", value: String(startIndex)),
+                URLQueryItem(name: "Limit", value: String(pageSize))
+            ]
+            for (key, value) in extraQuery { query.append(URLQueryItem(name: key, value: value)) }
+            components.queryItems = query
+
+            guard let url = components.url else { throw ProviderError.invalidURL }
+            var request = URLRequest(url: url)
+            request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
+
+            let (data, response) = try await perform(request)
+            try Self.validate(response, data: data)
+
+            let page: JellyfinItemsResponse
+            do {
+                page = try JSONDecoder().decode(JellyfinItemsResponse.self, from: data)
+            } catch {
+                throw ProviderError.decodingFailed(underlying: error)
+            }
+
+            collected.append(contentsOf: page.Items)
+
+            if page.Items.count < pageSize { break }
+            if let total = page.TotalRecordCount, collected.count >= total { break }
+            startIndex += pageSize
+            if startIndex > 1_000_000 { break }   // garde-fou anti-boucle
         }
-        var query: [URLQueryItem] = [
-            URLQueryItem(name: "Recursive", value: "true"),
-            URLQueryItem(name: "IncludeItemTypes", value: includeItemTypes),
-            URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName"),
-            URLQueryItem(name: "SortBy", value: "SortName"),
-            // Garde-fou pragmatique pour la Phase 1. Pour de très grosses bibliothèques, une
-            // pagination via `StartIndex`/`Limit` répétée serait nécessaire — non implémentée
-            // dans ce commit, à ajouter si un retour utilisateur le montre nécessaire.
-            URLQueryItem(name: "Limit", value: "5000")
-        ]
-        for (key, value) in extraQuery { query.append(URLQueryItem(name: key, value: value)) }
-        components.queryItems = query
 
-        guard let url = components.url else { throw ProviderError.invalidURL }
-        var request = URLRequest(url: url)
-        request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
-
-        let (data, response) = try await perform(request)
-        try Self.validate(response, data: data)
-
-        do {
-            return try JSONDecoder().decode(JellyfinItemsResponse.self, from: data).Items
-        } catch {
-            throw ProviderError.decodingFailed(underlying: error)
-        }
+        return collected
     }
 
     private func fetchPlaylistItemIDs(playlistID: String) async throws -> [String] {

@@ -129,3 +129,29 @@ décision la plus standard prise et documentée ici (+ en commentaire dans le co
     de test — artefact propre aux tests (l'app réelle a un container à vie longue, validé sans
     crash). Les tests désactivent donc l'autosave (`autosaveEnabled = false`). Vérifié par
     `SillonTests/LibrarySyncServiceTests` (synchro complète + delta) sur SDK macOS 26.5.
+
+## Commit 3 — validation contre serveurs réels (iOS 26)
+
+Le commit a été validé de bout en bout sur le simulateur iOS 26.5 contre les vrais serveurs de
+l'utilisateur (Jellyfin ~16 k titres, Navidrome ~16 k titres) — auth → synchro → persistance →
+Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs suivants.
+
+21. **Pagination Jellyfin + session réseau tolérante (bug réel corrigé).** `JellyfinProvider.fetchItems`
+    demandait jusqu'à **5000 éléments en une seule requête** (avec `MediaStreams`) — ce qui **expirait**
+    (NSURLError -1001) sur un vrai serveur domestique via internet, empêchant toute synchro d'une
+    bibliothèque réelle. Corrigé par une **pagination** `StartIndex`/`Limit` (pages de 500) et une
+    `URLSession` dédiée plus tolérante (`timeoutIntervalForRequest = 90 s`, `waitsForConnectivity`).
+    Après correctif : synchro complète de ~16 k titres aboutie et persistée sur iOS 26.
+
+22. **Apparence sombre imposée à l'app.** Le système de design est sombre par nature (fond noir,
+    texte ivoire). L'app suivait l'apparence système : en mode clair, les titres ivoire devenaient
+    illisibles sur fond blanc (constaté au test visuel). On force donc `.preferredColorScheme(.dark)`
+    au niveau de l'app — **uniquement l'app**, sans toucher au réglage clair/sombre du système.
+
+23. **Outils de test : amorçage DEBUG + tests d'intégration réseau (sans secret).** `App/DebugBootstrap.swift`
+    (compilé **uniquement en DEBUG**) crée un serveur et lance une synchro si l'app est lancée avec des
+    variables `SILLON_DEMO_*` — permet une validation de bout en bout sur simulateur sans saisie
+    manuelle ni contrôle d'écran (`SIMCTL_CHILD_…` via `simctl launch`). `SillonTests/ServerIntegrationTests`
+    fait de même côté test, en lisant les identifiants depuis l'environnement et en **se désactivant**
+    s'ils sont absents. Aucun identifiant n'est codé en dur ni committé : tout vient de l'environnement
+    de lancement, fourni localement.

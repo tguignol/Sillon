@@ -22,6 +22,9 @@ compilable (à vérifier dans Xcode, voir limitation d'environnement dans le REA
   écran d'accueil avec sections horizontales à tailles inégales (Ajouts récents, Favoris récents,
   Playlists) ; chargement d'artwork réel (`ArtworkLoader`) avec fallback placeholder cuivré.
   Affichage des favoris en lecture seule (le toggle arrive au commit 6).
+  **Validé sur iOS 26.5 contre les vrais serveurs Jellyfin et Navidrome (~16 k titres chacun)** :
+  auth → synchro → persistance → Accueil avec pochettes réelles (cf. Docs/DECISIONS.md #21-23,
+  dont la correction d'un timeout réel par pagination du provider Jellyfin).
 
 - [ ] **Commit 4 — Téléchargements**
   `DownloadManager` (URLSessionDownloadTask en arrière-plan), reproduction de l'arborescence
