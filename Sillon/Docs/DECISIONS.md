@@ -83,13 +83,3 @@ décision la plus standard prise et documentée ici (+ en commentaire dans le co
     (preuve de bon fonctionnement de la connexion), mais ne persiste pas encore les résultats en
     SwiftData — c'est le rôle du moteur de synchronisation, prévu au commit suivant
     ("Synchronisation + Bibliothèque").
-
-## Hors-commit — Réglages projet (à refaire si le projet est recréé)
-
-14. **App Transport Security : `NSAllowsArbitraryLoads = YES`.** Réglage à ajouter dans l'onglet
-    Info de la target Xcode (pas un fichier source — ne survit pas à une recréation du projet).
-    Choisi plutôt qu'une exception de domaine ciblée (`NSExceptionDomains`) car les serveurs
-    personnels visés par l'app (IP locale, nom DDNS de box opérateur, etc.) changent d'un serveur
-    à l'autre et sont presque toujours en `http://` ou en certificat auto-signé. Acceptable pour
-    une app qui ne parle qu'à des serveurs choisis par l'utilisateur lui-même ; à revoir si l'app
-    est un jour distribuée sur l'App Store (Apple demande alors une justification).
