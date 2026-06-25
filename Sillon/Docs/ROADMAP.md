@@ -93,7 +93,11 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
 - [~] **Lecture audiophile** *(sur demande, en cours)*
   Fait : **reprise au lancement** (file + morceau + position restaurés en pause, persistance
   UserDefaults — validé sur iOS 26 : « Carolyne » restauré à 2:14) ; **infos de format réel** dans le
-  lecteur (codec · fréquence · profondeur · débit, lu depuis l'`AVAudioFile`). À suivre : gapless /
-  crossfade, normalisation du volume (ReplayGain — nécessite les tags du serveur). Cf. Docs/DECISIONS.md #34.
+  lecteur (codec · fréquence · profondeur · débit, lu depuis l'`AVAudioFile`) ; **lecture gapless**
+  (pré-planification du morceau suivant sur le même nœud `AVAudioPlayerNode`, transition sans blanc,
+  temps courant continu à travers les fichiers, re-planification après modification de la file —
+  validé sur iOS 26 : « Les Crises de l'âme » → « Carolyne » enchaîné sans silence). À suivre :
+  crossfade (fondu enchaîné), normalisation du volume (ReplayGain — nécessite les tags du serveur).
+  Cf. Docs/DECISIONS.md #34-35.
 
-Reste de la Phase 2 : gapless/crossfade, ReplayGain, et la proposition d'origine (à préciser).
+Reste de la Phase 2 : crossfade, ReplayGain, et la proposition d'origine (à préciser).

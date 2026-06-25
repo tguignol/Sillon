@@ -71,6 +71,12 @@ final class PlayerController {
     @ObservationIgnored private var sampleRate: Double = 44_100
     @ObservationIgnored private var seekFrame: AVAudioFramePosition = 0
     @ObservationIgnored private var scheduleGeneration = 0
+    // Gapless : `playerTime.sampleTime` court en continu à travers les fichiers pré-planifiés ;
+    // on mémorise l'instant (en frames) où le morceau courant a commencé, et la longueur du fichier.
+    @ObservationIgnored private var currentTrackStartFrame: AVAudioFramePosition = 0
+    @ObservationIgnored private var currentFileLength: AVAudioFramePosition = 0
+    @ObservationIgnored private var nextFile: AVAudioFile?
+    @ObservationIgnored private var nextPreparedIndex: Int?
     @ObservationIgnored private var ticker: Timer?
     @ObservationIgnored private let analyzer = AudioSpectrumAnalyzer(bandCount: 48)
     @ObservationIgnored private var tapInstalled = false
@@ -155,6 +161,14 @@ final class PlayerController {
             queue = [current] + rest
             currentIndex = 0
         }
+        rescheduleFromCurrentPosition()
+    }
+
+    /// Ré-établit la planification (morceau courant + suivant pré-planifié) à la position actuelle.
+    /// Utilisé après une modification de la file pour que le bon morceau suivant joue en gapless.
+    private func rescheduleFromCurrentPosition() {
+        guard audioFile != nil else { return }
+        seek(to: currentTime)
     }
 
     func cycleRepeatMode() {
@@ -178,6 +192,7 @@ final class PlayerController {
         queue.move(fromOffsets: source, toOffset: destination)
         if let currentID { currentIndex = queue.firstIndex { $0.id == currentID } ?? currentIndex }
         if isShuffled { originalQueue = [] }   // l'ordre manuel prime sur la restauration shuffle
+        rescheduleFromCurrentPosition()
     }
 
     func skip(by seconds: TimeInterval) {
@@ -191,13 +206,18 @@ final class PlayerController {
         let remaining = file.length - frame
         seekFrame = frame
         player.stop()
+        currentTrackStartFrame = 0       // `stop()` remet `sampleTime` à zéro
+        currentFileLength = remaining     // seules les frames restantes sont planifiées
+        nextFile = nil
+        nextPreparedIndex = nil
         guard remaining > 0 else { handlePlaybackEnded(); return }
 
         scheduleGeneration += 1
         let generation = scheduleGeneration
+        let index = currentIndex
         player.scheduleSegment(file, startingFrame: frame, frameCount: AVAudioFrameCount(remaining), at: nil,
                                completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleScheduleCompleted(generation) }
+            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
         }
         currentTime = seconds
         if wasPlaying {
@@ -208,6 +228,7 @@ final class PlayerController {
         }
         updateNowPlayingInfo()
         savePlaybackState()
+        Task { await scheduleNextGapless(generation: generation) }
     }
 
     // MARK: - Favori (le cœur du lecteur)
@@ -262,6 +283,10 @@ final class PlayerController {
             duration = Double(file.length) / sampleRate
             seekFrame = 0
             currentTime = 0
+            currentTrackStartFrame = 0
+            currentFileLength = file.length
+            nextFile = nil
+            nextPreparedIndex = nil
             currentFormatDescription = Self.formatDescription(for: file, track: track)
 
             connectGraph(format: file.processingFormat)
@@ -270,8 +295,9 @@ final class PlayerController {
             player.stop()
             scheduleGeneration += 1
             let generation = scheduleGeneration
+            let index = currentIndex
             player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                Task { @MainActor in self?.handleScheduleCompleted(generation) }
+                Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
             }
             if autoplay {
                 player.play()
@@ -281,6 +307,7 @@ final class PlayerController {
             updateNowPlayingInfo()
             Task { await loadArtwork(for: track) }
             savePlaybackState()
+            Task { await scheduleNextGapless(generation: generation) }
         } catch {
             errorMessage = "Fichier audio illisible."
             isPlaying = false
@@ -363,10 +390,56 @@ final class PlayerController {
 
     // MARK: - Fin de lecture / ticker
 
-    private func handleScheduleCompleted(_ generation: Int) {
-        // Ignore les complétions des planifications remplacées (seek, changement de morceau).
-        guard generation == scheduleGeneration else { return }
+    /// Appelé quand le fichier d'un morceau (à l'index donné) a fini d'être joué.
+    private func handleTrackEnded(index: Int, generation: Int) {
+        guard generation == scheduleGeneration else { return }   // planification remplacée (seek/changement)
+        guard index == currentIndex else { return }              // complétion d'un fichier déjà dépassé
+
+        // Cas gapless : le morceau suivant a été pré-planifié et joue déjà sans blanc.
+        if let nextFile, nextPreparedIndex == currentIndex + 1, repeatMode != .one {
+            advanceGapless(to: nextFile, newIndex: currentIndex + 1, generation: generation)
+            return
+        }
         handlePlaybackEnded()
+    }
+
+    /// Bascule sur le morceau suivant déjà en cours de lecture (aucun arrêt du moteur).
+    private func advanceGapless(to file: AVAudioFile, newIndex: Int, generation: Int) {
+        currentTrackStartFrame += currentFileLength
+        currentIndex = newIndex
+        audioFile = file
+        currentFileLength = file.length
+        duration = Double(file.length) / sampleRate
+        seekFrame = 0
+        currentTime = 0
+        nextFile = nil
+        nextPreparedIndex = nil
+        if let track = currentTrack {
+            currentFormatDescription = Self.formatDescription(for: file, track: track)
+            Task { await loadArtwork(for: track) }
+        }
+        updateNowPlayingInfo()
+        savePlaybackState()
+        Task { await scheduleNextGapless(generation: generation) }
+    }
+
+    /// Pré-planifie le morceau suivant pour une transition sans blanc, si possible (même fréquence
+    /// d'échantillonnage, fichier accessible). Sinon repli sur le rechargement classique à la transition.
+    private func scheduleNextGapless(generation: Int) async {
+        guard generation == scheduleGeneration, repeatMode != .one else { return }
+        let nextIndex = currentIndex + 1
+        guard nextIndex < queue.count, nextPreparedIndex != nextIndex else { return }
+        let nextTrack = queue[nextIndex]
+        guard let url = await resolveURL(for: nextTrack) else { return }
+        guard generation == scheduleGeneration else { return }
+        guard let file = try? AVAudioFile(forReading: url),
+              file.processingFormat.sampleRate == sampleRate else { return }
+
+        player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.handleTrackEnded(index: nextIndex, generation: generation) }
+        }
+        nextFile = file
+        nextPreparedIndex = nextIndex
     }
 
     private func handlePlaybackEnded() {
@@ -409,7 +482,9 @@ final class PlayerController {
     private func tick() {
         guard isPlaying else { return }
         if let nodeTime = player.lastRenderTime, let playerTime = player.playerTime(forNodeTime: nodeTime) {
-            currentTime = min(duration, Double(seekFrame + playerTime.sampleTime) / sampleRate)
+            // `sampleTime` court à travers les fichiers pré-planifiés → on retranche le départ du morceau.
+            let frames = seekFrame + (playerTime.sampleTime - currentTrackStartFrame)
+            currentTime = min(duration, max(0, Double(frames) / sampleRate))
         }
         // Sauvegarde périodique de la position pour la reprise au lancement.
         if currentTime - lastSaveTime >= 8 {

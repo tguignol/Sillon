@@ -266,3 +266,22 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     La **barre de volume** agit sur `engine.mainMixerNode.outputVolume` (volume relatif de l'app, 0…1),
     testable partout (vs `MPVolumeView` matériel). La progression reste lisible via la barre/temps sous
     le titre. Validé sur iOS 26 : spectre animé en temps réel, volume fonctionnel.
+
+35. **Lecture gapless (sans blanc entre les morceaux).** Plutôt que d'arrêter le nœud à la fin d'un
+    morceau puis de recharger le suivant (ce qui crée un micro-silence), on **pré-planifie** le fichier
+    suivant sur le **même `AVAudioPlayerNode`** dès que le morceau courant démarre (`scheduleNextGapless`).
+    `AVAudioPlayerNode` enchaîne alors les fichiers planifiés sans interruption. Le passage au morceau
+    suivant (`advanceGapless`) ne **stoppe pas** le moteur : il met simplement à jour l'index, le fichier
+    courant, la durée, le format et la pochette, puis pré-planifie le morceau d'après. Comme
+    `playerTime.sampleTime` court **en continu** à travers les fichiers planifiés, on mémorise
+    `currentTrackStartFrame` (frame de départ du morceau courant) et `currentFileLength`, et le temps
+    courant est calculé par différence (`tick`). Le `seek` réinitialise ces compteurs (`stop()` remet
+    `sampleTime` à zéro) et re-planifie le suivant. Toute modification de la file (shuffle, déplacement)
+    appelle `rescheduleFromCurrentPosition()` pour que le **bon** morceau suivant soit pré-planifié.
+    **Garde-fous** : pré-planification uniquement si le fichier suivant est accessible et de **même
+    fréquence d'échantillonnage** que le nœud (sinon repli sur le rechargement classique à la transition,
+    avec son court blanc) ; désactivée en répétition « une » ; les complétions sont filtrées par
+    `generation` **et** par `index` pour ignorer les planifications remplacées ou déjà dépassées.
+    **Validé sur iOS 26** : transition « Les Crises de l'âme » → « Carolyne » enchaînée sans blanc, format
+    réel et position correctement repris sur le nouveau morceau. À venir : crossfade (fondu enchaîné, par
+    `AVAudioUnitMixer`/rampes de gain) et ReplayGain (toujours en attente des tags serveur).
