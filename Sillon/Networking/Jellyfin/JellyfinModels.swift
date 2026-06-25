@@ -78,7 +78,8 @@ struct JellyfinBaseItem: Decodable, Sendable {
     }
 
     var audioBitRate: Int? {
-        MediaStreams?.first(where: { $0.StreamType == "Audio" })?.BitRate
+        // Jellyfin renvoie le débit en bits/s ; l'app affiche des kbps (comme Subsonic) → /1000.
+        MediaStreams?.first(where: { $0.StreamType == "Audio" })?.BitRate.map { $0 / 1000 }
     }
 
     var durationSeconds: Double {
