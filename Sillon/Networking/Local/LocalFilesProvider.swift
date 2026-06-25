@@ -112,6 +112,28 @@ actor LocalFilesProvider: ServerProvider {
         )
     }
 
+    func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics? {
+        // Les paroles ne sont pas une clé commune AVFoundation : elles vivent dans des tags
+        // format-spécifiques (USLT ID3, `©lyr` iTunes...) au format hétérogène et souvent absents.
+        // On lit le tag paroles embarqué (texte simple, non synchronisé) s'il existe, sinon nil.
+        let asset = AVURLAsset(url: URL(fileURLWithPath: trackRemoteID))
+        let identifiers: [AVMetadataIdentifier] = [.iTunesMetadataLyrics, .id3MetadataUnsynchronizedLyric]
+        guard let all = try? await asset.load(.metadata) else { return nil }
+        for id in identifiers {
+            let items = AVMetadataItem.metadataItems(from: all, filteredByIdentifier: id)
+            for item in items {
+                if let text = try? await item.load(.stringValue), !text.isEmpty {
+                    let lines = text.components(separatedBy: .newlines)
+                        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                        .map { LyricLine(timeSeconds: nil, text: $0) }
+                    guard !lines.isEmpty else { return nil }
+                    return TrackLyrics(synced: false, lines: lines)
+                }
+            }
+        }
+        return nil
+    }
+
     // MARK: - Énumération du système de fichiers
 
     private struct LocalAudioFile {

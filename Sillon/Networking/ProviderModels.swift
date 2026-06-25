@@ -125,3 +125,30 @@ struct SearchResults: Sendable {
     var albums: [RemoteAlbum]
     var tracks: [RemoteTrack]
 }
+
+/// Une ligne de paroles. `timeSeconds` est non-nil pour des paroles synchronisées (Jellyfin `Start`
+/// en ticks .NET, OpenSubsonic `start` en ms) ; nil pour un vers en texte simple sans horodatage.
+struct LyricLine: Sendable, Hashable {
+    var timeSeconds: Double?
+    var text: String
+}
+
+/// Paroles d'un morceau, récupérées À LA DEMANDE (jamais persistées, hors schéma SwiftData).
+/// `synced == true` => au moins une ligne porte un `timeSeconds` exploitable pour le défilement.
+struct TrackLyrics: Sendable, Hashable {
+    var synced: Bool
+    var lines: [LyricLine]
+
+    /// Index de la ligne courante = ligne horodatée dont le temps est le plus grand parmi ceux <= `t`.
+    /// `nil` avant la première ligne ou si aucune ligne n'est horodatée. Robuste à un ordre non trié
+    /// (ne suppose pas les timecodes croissants), sans réordonner l'affichage.
+    func activeLineIndex(at t: TimeInterval) -> Int? {
+        var bestIndex: Int?
+        var bestTime = -Double.infinity
+        for (i, line) in lines.enumerated() {
+            guard let lt = line.timeSeconds, lt <= t else { continue }
+            if lt >= bestTime { bestTime = lt; bestIndex = i }
+        }
+        return bestIndex
+    }
+}

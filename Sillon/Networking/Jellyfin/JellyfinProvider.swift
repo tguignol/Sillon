@@ -197,6 +197,29 @@ actor JellyfinProvider: ServerProvider {
         )
     }
 
+    func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics? {
+        try await ensureAuthenticated()
+        let url = baseURL.appending(path: "Audio/\(trackRemoteID)/Lyrics")
+        var request = URLRequest(url: url)
+        request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
+
+        let (data, response) = try await perform(request)
+        // 404 = pas de paroles pour ce morceau : cas normal, on renvoie nil sans lever d'erreur.
+        if let http = response as? HTTPURLResponse, http.statusCode == 404 { return nil }
+        try Self.validate(response, data: data)
+
+        let decoded: JellyfinLyricsResponse
+        do { decoded = try JSONDecoder().decode(JellyfinLyricsResponse.self, from: data) }
+        catch { throw ProviderError.decodingFailed(underlying: error) }
+
+        let lines = (decoded.Lyrics ?? []).map { line in
+            // Start en ticks .NET (1 tick = 100 ns), comme RunTimeTicks → secondes = ticks / 10_000_000.
+            LyricLine(timeSeconds: line.Start.map { Double($0) / 10_000_000.0 }, text: line.Text ?? "")
+        }
+        guard !lines.isEmpty else { return nil }
+        return TrackLyrics(synced: lines.contains { $0.timeSeconds != nil }, lines: lines)
+    }
+
     // MARK: - Requêtes internes
 
     private func fetchItems(includeItemTypes: String, extraQuery: [String: String] = [:]) async throws -> [JellyfinBaseItem] {

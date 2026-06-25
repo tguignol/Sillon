@@ -10,6 +10,7 @@ struct PlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showEQ = false
     @State private var showQueue = false
+    @State private var showLyrics = false
     @State private var scrubTime: Double?
     @AppStorage("spectrumStyle") private var spectrumStyleRaw = SpectrumStyle.circularBars.rawValue
 
@@ -36,6 +37,7 @@ struct PlayerView: View {
             .background(Palette.fondNoir)
             .sheet(isPresented: $showEQ) { EQView() }
             .sheet(isPresented: $showQueue) { QueueView() }
+            .sheet(isPresented: $showLyrics) { LyricsView(track: track) }
         } else {
             ContentUnavailableView("Rien en lecture", systemImage: "music.note")
                 .background(Palette.fondNoir)
@@ -178,6 +180,9 @@ struct PlayerView: View {
             Button { player.cycleRepeatMode() } label: {
                 Image(systemName: player.repeatMode.systemImage)
                     .foregroundStyle(player.repeatMode.isActive ? Palette.accentCuivre : Palette.texteIvoire)
+            }
+            Button { showLyrics = true } label: {
+                Image(systemName: "quote.bubble").foregroundStyle(Palette.texteIvoire)
             }
             Button { showQueue = true } label: {
                 Image(systemName: "list.bullet").foregroundStyle(Palette.texteIvoire)

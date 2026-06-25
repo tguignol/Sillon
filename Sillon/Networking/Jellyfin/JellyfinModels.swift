@@ -90,3 +90,13 @@ struct JellyfinItemsResponse: Decodable, Sendable {
     let Items: [JellyfinBaseItem]
     let TotalRecordCount: Int?
 }
+
+/// Réponse de `GET /Audio/{itemId}/Lyrics` (LyricDto). `Start` en ticks .NET (1 = 100 ns),
+/// absent pour une ligne non synchronisée.
+struct JellyfinLyricsResponse: Decodable, Sendable {
+    struct Line: Decodable, Sendable {
+        let Text: String?
+        let Start: Int64?
+    }
+    let Lyrics: [Line]?
+}

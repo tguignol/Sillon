@@ -120,4 +120,13 @@ Builds macOS + iOS verts, tests unitaires verts. En attente de validation avant 
   **validé sur iOS 26** (fondu complet « Les Crises de l'âme » → « Carolyne », sans crash).
   Cf. DECISIONS.md #37.
 
+- [x] **Paroles synchronisées** *(sur demande)*
+  Récupération à la demande (lecture seule, hors schéma) via `ServerProvider.lyrics(forTrackID:)` +
+  `LyricsLoader` (cache par morceau) : **Jellyfin** `/Audio/{id}/Lyrics` (ticks .NET), **OpenSubsonic**
+  `getLyricsBySongId` (ms), **Local** tags embarqués. Bouton `quote.bubble` → sheet `LyricsView` :
+  surlignage de la ligne courante + auto-défilement + tap-to-seek (synchronisé), texte simple sinon,
+  états chargement / « Pas de paroles ». Revue (garantie lecture seule confirmée) + tests
+  (`LyricsTests`, formats réels) + **validé sur iOS 26** (surlignage qui avance ; état vide réel
+  Navidrome ; Jellyfin a des paroles synchronisées sur ~78 % des titres). Cf. DECISIONS.md #38.
+
 Reste de la Phase 2 : la proposition d'origine (à préciser).

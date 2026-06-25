@@ -37,4 +37,9 @@ protocol ServerProvider: Actor {
 
     /// Recherche unifiée (artistes + albums + morceaux) côté serveur.
     func searchAll(query: String) async throws -> SearchResults
+
+    /// Récupère les paroles d'un morceau À LA DEMANDE (lecture seule serveur, hors synchro/schéma).
+    /// Renvoie `nil` quand le serveur ne fournit aucune parole pour ce morceau (cas normal, pas une
+    /// erreur) ; lève `ProviderError` seulement en cas d'échec réseau/auth/décodage.
+    func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics?
 }

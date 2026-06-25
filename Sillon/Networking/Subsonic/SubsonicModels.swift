@@ -25,6 +25,22 @@ struct SubsonicResponseBody: Decodable, Sendable {
     let searchResult3: SubsonicSearchResult3?
     let playlists: SubsonicPlaylists?
     let playlist: SubsonicPlaylistDetail?
+    let lyricsList: SubsonicLyricsList?
+}
+
+/// Réponse `getLyricsBySongId` (extension OpenSubsonic). `start` en millisecondes ; un tableau
+/// `structuredLyrics` peut contenir plusieurs langues/variantes (on prend la première).
+struct SubsonicLyricsList: Decodable, Sendable {
+    struct Structured: Decodable, Sendable {
+        struct Line: Decodable, Sendable {
+            let start: Int?      // millisecondes ; absent => non synchronisé
+            let value: String?
+        }
+        let synced: Bool?
+        let offset: Int?         // ms, décalage global appliqué à chaque start (défaut 0)
+        let line: [Line]?
+    }
+    let structuredLyrics: [Structured]?
 }
 
 struct SubsonicAPIError: Decodable, Sendable {

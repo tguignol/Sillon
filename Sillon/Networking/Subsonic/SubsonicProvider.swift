@@ -171,6 +171,31 @@ actor SubsonicProvider: ServerProvider {
         return (remoteAlbums, tracks)
     }
 
+    func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics? {
+        // getLyricsBySongId : extension OpenSubsonic ; renvoie des paroles structurées (synchronisables).
+        // Un serveur Subsonic legacy sans l'extension répond status != "ok" → ProviderError, que le
+        // LyricsLoader avale pour afficher l'état vide (pas de paroles).
+        let body = try await performRequest(
+            path: "getLyricsBySongId",
+            extraQuery: [URLQueryItem(name: "id", value: trackRemoteID)]
+        )
+        // Plusieurs variantes possibles (langues/synchro) : on préfère une variante synchronisée avec
+        // lignes, sinon la première non vide, sinon la première — pour ne pas afficher « pas de paroles »
+        // alors qu'une variante exploitable existe.
+        let variants = body.lyricsList?.structuredLyrics ?? []
+        guard let structured = variants.first(where: { ($0.synced ?? false) && !($0.line ?? []).isEmpty })
+            ?? variants.first(where: { !($0.line ?? []).isEmpty })
+            ?? variants.first
+        else { return nil }
+        let offsetSeconds = Double(structured.offset ?? 0) / 1000.0
+        let lines = (structured.line ?? []).map { line in
+            LyricLine(timeSeconds: line.start.map { Double($0) / 1000.0 + offsetSeconds }, text: line.value ?? "")
+        }
+        guard !lines.isEmpty else { return nil }
+        let synced = structured.synced ?? lines.contains { $0.timeSeconds != nil }
+        return TrackLyrics(synced: synced, lines: lines)
+    }
+
     private func performRequest(path: String, extraQuery: [URLQueryItem] = []) async throws -> SubsonicResponseBody {
         let url = try makeAuthenticatedURL(path: path, extraQuery: extraQuery)
 

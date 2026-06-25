@@ -21,6 +21,7 @@ actor StubProvider: ServerProvider {
     func downloadURL(for trackRemoteID: String) async throws -> URL { URL(string: "https://example.invalid")! }
     func coverArtURL(for remoteID: String, preferredSize: Int?) async throws -> URL? { nil }
     func searchAll(query: String) async throws -> SearchResults { SearchResults(artists: [], albums: [], tracks: []) }
+    func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics? { nil }
 }
 
 @MainActor

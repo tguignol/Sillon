@@ -338,3 +338,25 @@ Accueil avec pochettes réelles. Cette campagne a fait émerger les correctifs s
     fondu equal-power complet « Les Crises de l'âme » → « Carolyne » (log : `out/in` de 1/0 → 0.7/0.7 →
     0/1, puis bascule), sans crash (un crash initial dû à un `renderFormat` 0 Hz quand le moteur était
     démarré avant le câblage a été corrigé : on câble avant de démarrer, comme le gapless).
+
+## Phase 2 — Paroles synchronisées (sur demande)
+
+38. **Paroles à la demande, lecture seule, synchronisées.** Récupération À LA DEMANDE (jamais persistée,
+    hors schéma SwiftData, hors synchro) via une nouvelle méthode du protocole `ServerProvider`
+    (`func lyrics(forTrackID:) async throws -> TrackLyrics?`), comme `ArtworkLoader` : un `LyricsLoader`
+    `@MainActor @Observable` (environnement, cache providers par serveur + résultats par `track.id`,
+    positif ET négatif) appelé par `LyricsView(track:)` en `.task(id:)`. **APIs** : **Jellyfin**
+    `GET /Audio/{id}/Lyrics` (`Lyrics[].{Text, Start}`, `Start` en ticks .NET → s = ticks/10_000_000,
+    404 → nil) ; **OpenSubsonic** `getLyricsBySongId` (`structuredLyrics[].{synced, offset, line[].{start, value}}`,
+    `start`/`offset` en **ms** → s = ms/1000 ; on choisit la variante synchronisée non vide parmi
+    plusieurs langues) ; **Local** tags embarqués (`iTunesMetadataLyrics`/`id3MetadataUnsynchronizedLyric`,
+    texte simple, lignes vides filtrées) sinon nil. Toutes les requêtes sont des **GET** — lecture seule
+    confirmée par revue. Modèle `TrackLyrics { synced, lines: [LyricLine{ timeSeconds?, text }] }`.
+    **UI** : bouton `quote.bubble` dans le `bottomRow` du lecteur ouvrant une **sheet** (detents
+    `.medium/.large`). Si synchronisé : surlignage de la ligne courante (cuivre, plus grande) via
+    `TrackLyrics.activeLineIndex(at:)` (robuste à un ordre non trié, sans réordonner l'affichage)
+    lue sur `player.currentTime`, auto-défilement `ScrollViewReader` centré, tap sur une ligne = `seek`.
+    Sinon texte simple défilable ; états chargement / « Pas de paroles ». Calcul/décodage couverts par
+    `SillonTests/LyricsTests` (formats réels Jellyfin/Subsonic). **Validé sur iOS 26** : surlignage
+    synchronisé qui avance et auto-défile (paroles synthétiques), et état vide réel sur Navidrome (dont
+    les fichiers n'ont pas de paroles ; **Jellyfin en a sur ~78 % des titres**, souvent synchronisées).
