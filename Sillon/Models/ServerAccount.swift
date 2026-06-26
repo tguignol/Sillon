@@ -24,6 +24,16 @@ enum ServerType: String, Codable, CaseIterable, Identifiable, Hashable, Sendable
         case .local: "folder.fill"
         }
     }
+
+    /// Rang de priorité par défaut pour départager les doublons quand l'ordre utilisateur est égal :
+    /// le local (hors-ligne, instantané) d'abord, puis Jellyfin, puis Subsonic/Navidrome.
+    var dedupRank: Int {
+        switch self {
+        case .local: 0
+        case .jellyfin: 1
+        case .subsonic: 2
+        }
+    }
 }
 
 /// Compte serveur configuré par l'utilisateur.
@@ -43,6 +53,10 @@ final class ServerAccount {
     /// Le désactiver les masque SANS supprimer — réactivation instantanée, sans re-synchronisation.
     /// Migration légère (valeur par défaut, aucun MigrationPlan requis).
     var isActive: Bool = true
+
+    /// Ordre de priorité (réordonnable) : plus petit = préféré. Sert à choisir la copie gagnante
+    /// d'un album/titre présent sur plusieurs serveurs, et à ordonner la liste des serveurs.
+    var sortOrder: Int = 0
 
     /// Uniquement pour `.local` : bookmark de sécurité (App Sandbox / iOS) vers le dossier choisi par l'utilisateur.
     /// Permet de retrouver l'accès au dossier après redémarrage sans nouvelle demande de permission.

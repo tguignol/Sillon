@@ -12,7 +12,10 @@ struct PlaylistDetailView: View {
     // désactivé (affichage + lecture). Cas commun (mono-serveur / tous actifs) : aucun changement.
     private var orderedItems: [PlaylistItem] {
         playlist.items
-            .filter { $0.track?.server?.isActive ?? true }
+            .filter { item in
+                guard let track = item.track else { return false }   // exclut les items sans piste
+                return track.server?.isActive ?? true
+            }
             .sorted { $0.position < $1.position }
     }
     private var orderedTracks: [Track] { orderedItems.compactMap(\.track) }

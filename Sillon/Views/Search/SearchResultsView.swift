@@ -12,6 +12,7 @@ struct SearchResultsView: View {
     // @Query se réévalue à chaque save du contexte (y compris un toggle isActive) → permet de relancer
     // la recherche quand l'ensemble des serveurs actifs change.
     @Query private var servers: [ServerAccount]
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
 
     @State private var artists: [Artist] = []
     @State private var albums: [Album] = []
@@ -58,7 +59,7 @@ struct SearchResultsView: View {
         }
         .navigationDestination(for: Artist.self) { ArtistDetailView(artist: $0) }
         .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
-        .task(id: "\(query)|\(activeSignature)") { runSearch() }
+        .task(id: "\(query)|\(activeSignature)|\(mergeDuplicates)") { runSearch() }
     }
 
     private func artistRow(_ artist: Artist) -> some View {
@@ -86,24 +87,29 @@ struct SearchResultsView: View {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 1 else { artists = []; albums = []; tracks = []; return }
 
-        // On élargit la limite de fetch puis on filtre par serveurs actifs, pour éviter qu'un serveur
-        // désactivé ne « vole » les premières places et réduise les résultats visibles.
+        // On élargit la limite de fetch (× nb de serveurs actifs) puis on filtre par serveurs actifs et
+        // on déduplique, pour qu'un serveur désactivé ou des doublons miroir ne réduisent pas les résultats.
+        let factor = max(1, servers.filter(\.isActive).count)
+
         var artistDesc = FetchDescriptor<Artist>(
             predicate: #Predicate { $0.name.localizedStandardContains(q) },
             sortBy: [SortDescriptor(\.sortName)])
-        artistDesc.fetchLimit = 40
-        artists = Array(((try? context.fetch(artistDesc)) ?? []).onActiveServers().prefix(20))
+        artistDesc.fetchLimit = 20 * factor
+        artists = Array(((try? context.fetch(artistDesc)) ?? [])
+            .onActiveServers().dedupedArtists(merge: mergeDuplicates).prefix(20))
 
         var albumDesc = FetchDescriptor<Album>(
             predicate: #Predicate { $0.title.localizedStandardContains(q) },
             sortBy: [SortDescriptor(\.title)])
-        albumDesc.fetchLimit = 40
-        albums = Array(((try? context.fetch(albumDesc)) ?? []).onActiveServers().prefix(20))
+        albumDesc.fetchLimit = 20 * factor
+        albums = Array(((try? context.fetch(albumDesc)) ?? [])
+            .onActiveServers().dedupedAlbums(merge: mergeDuplicates).map(\.album).prefix(20))
 
         var trackDesc = FetchDescriptor<Track>(
             predicate: #Predicate { $0.title.localizedStandardContains(q) },
             sortBy: [SortDescriptor(\.title)])
-        trackDesc.fetchLimit = 100
-        tracks = Array(((try? context.fetch(trackDesc)) ?? []).onActiveServers().prefix(50))
+        trackDesc.fetchLimit = 50 * factor
+        tracks = Array(((try? context.fetch(trackDesc)) ?? [])
+            .onActiveServers().dedupedTracks(merge: mergeDuplicates).prefix(50))
     }
 }

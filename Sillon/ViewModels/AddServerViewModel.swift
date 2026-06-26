@@ -140,6 +140,11 @@ final class AddServerViewModel {
         let displayName = name.isEmpty ? defaultName() : name
         let account = ServerAccount(id: draftServerID, name: displayName, type: serverType, baseURLString: baseURLString, username: username)
         account.localFolderBookmark = localFolderBookmark
+        // Priorité définie dès la création (sinon elle ne le serait qu'à l'ouverture de Réglages →
+        // Serveurs) : le nouveau serveur arrive en dernier (priorité la plus basse) et ne collisionne
+        // pas avec un sortOrder=0 placé manuellement, ce qui préserve l'ordre choisi par l'utilisateur.
+        let maxOrder = ((try? context.fetch(FetchDescriptor<ServerAccount>())) ?? []).map(\.sortOrder).max()
+        account.sortOrder = (maxOrder ?? -1) + 1
         context.insert(account)
     }
 

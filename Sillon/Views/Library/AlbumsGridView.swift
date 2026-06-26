@@ -41,7 +41,10 @@ struct AlbumsGridView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
-    private var visibleAlbums: [Album] { albums.onActiveServers() }
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
+    private var visibleAlbums: [(album: Album, sourceCount: Int)] {
+        albums.onActiveServers().dedupedAlbums(merge: mergeDuplicates)
+    }
 
     var body: some View {
         Group {
@@ -50,9 +53,9 @@ struct AlbumsGridView: View {
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                        ForEach(visibleAlbums) { album in
-                            NavigationLink(value: album) {
-                                AlbumCard(album: album)
+                        ForEach(visibleAlbums, id: \.album.id) { entry in
+                            NavigationLink(value: entry.album) {
+                                AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
                             }
                             .buttonStyle(.plain)
                         }

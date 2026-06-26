@@ -23,11 +23,18 @@ struct HomeView: View {
 
     private let albumCardSize: CGFloat = 160
 
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
+
     // Versions filtrées par serveurs actifs (les @Query agrègent tous les serveurs confondus).
     private var recentAlbums: [Album] { albumsByDate.onActiveServers() }
     private var activeFavoriteAlbums: [Album] { favoriteAlbums.onActiveServers() }
     private var activePlayedAlbums: [Album] { playedAlbums.onActiveServers() }
     private var activeFavoriteTracks: [Track] { favoriteTracks.onActiveServers() }
+
+    /// Déduplique puis borne une liste d'albums pour un carrousel.
+    private func entries(_ albums: [Album], limit: Int) -> [(album: Album, sourceCount: Int)] {
+        Array(albums.dedupedAlbums(merge: mergeDuplicates).prefix(limit))
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,14 +58,15 @@ struct HomeView: View {
     private var content: some View {
         // Sélections figées filtrées au rendu : si un serveur est désactivé après leur génération,
         // ses albums disparaissent quand même de « Redécouvrir » / « Albums aléatoires ».
-        let rediscover = rediscoverAlbums.onActiveServers()
-        let random = randomAlbums.onActiveServers()
+        // Représentants (déjà dédupliqués à la génération) → on les présente sans recomptage de sources.
+        let rediscover = rediscoverAlbums.onActiveServers().map { (album: $0, sourceCount: 1) }
+        let random = randomAlbums.onActiveServers().map { (album: $0, sourceCount: 1) }
         return ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
-                albumCarousel("Albums récents", Array(recentAlbums.prefix(30)))
+                albumCarousel("Albums récents", entries(recentAlbums, limit: 30))
 
                 if !activeFavoriteAlbums.isEmpty {
-                    albumCarousel("Albums préférés", Array(activeFavoriteAlbums.prefix(30)))
+                    albumCarousel("Albums préférés", entries(activeFavoriteAlbums, limit: 30))
                 }
 
                 if !rediscover.isEmpty {
@@ -66,11 +74,11 @@ struct HomeView: View {
                 }
 
                 if !activePlayedAlbums.isEmpty {
-                    albumCarousel("Continuer l'écoute", Array(activePlayedAlbums.prefix(5)))
+                    albumCarousel("Continuer l'écoute", entries(activePlayedAlbums, limit: 5))
                 }
 
                 if !activeFavoriteTracks.isEmpty {
-                    let tracks = Array(activeFavoriteTracks.prefix(20))
+                    let tracks = Array(activeFavoriteTracks.dedupedTracks(merge: mergeDuplicates).prefix(20))
                     HomeSection(title: "Pistes préférées") {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             Button {
@@ -86,6 +94,7 @@ struct HomeView: View {
                 if !random.isEmpty {
                     albumCarousel("Albums aléatoires", random)
                 }
+
 
                 if !playlists.isEmpty {
                     HomeSection(title: "Playlists") {
@@ -105,11 +114,11 @@ struct HomeView: View {
 
     /// Carrousel d'albums standard (carte + navigation vers le détail).
     @ViewBuilder
-    private func albumCarousel(_ title: String, _ albums: [Album]) -> some View {
+    private func albumCarousel(_ title: String, _ entries: [(album: Album, sourceCount: Int)]) -> some View {
         HomeSection(title: title) {
-            ForEach(albums) { album in
-                NavigationLink(value: album) {
-                    AlbumCard(album: album, size: albumCardSize)
+            ForEach(entries, id: \.album.id) { entry in
+                NavigationLink(value: entry.album) {
+                    AlbumCard(album: entry.album, size: albumCardSize, sourceCount: entry.sourceCount)
                 }
                 .buttonStyle(.plain)
             }
@@ -121,11 +130,13 @@ struct HomeView: View {
     /// (notamment quand `lastPlayedDate` change pendant la lecture) ; renouvelées au prochain lancement.
     private func generateDiscoveryIfNeeded() {
         guard randomAlbums.isEmpty, !recentAlbums.isEmpty else { return }
-        randomAlbums = Array(recentAlbums.shuffled().prefix(15))
+        // On tire parmi les représentants dédupliqués → pas de doublon entre serveurs dans les rangées.
+        let deduped = recentAlbums.dedupedAlbums(merge: mergeDuplicates).map(\.album)
+        randomAlbums = Array(deduped.shuffled().prefix(15))
         // « Redécouvrir » : priorité aux albums jamais lus (depuis l'ajout du champ) ; repli sur tout
         // le catalogue si trop peu d'albums jamais lus pour remplir la rangée.
-        let neverPlayed = recentAlbums.filter { $0.lastPlayedDate == nil }
-        let pool = neverPlayed.count >= 15 ? neverPlayed : recentAlbums
+        let neverPlayed = deduped.filter { $0.lastPlayedDate == nil }
+        let pool = neverPlayed.count >= 15 ? neverPlayed : deduped
         rediscoverAlbums = Array(pool.shuffled().prefix(15))
     }
 }

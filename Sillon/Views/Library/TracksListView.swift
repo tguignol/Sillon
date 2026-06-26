@@ -7,11 +7,14 @@ struct TracksListView: View {
     @Query(sort: \Track.title) private var tracks: [Track]
     @Environment(\.playerController) private var playerController
     @Environment(\.modelContext) private var context
+    @Environment(\.hasMultipleServers) private var hasMultipleServers
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
 
     var body: some View {
         // Calculé une seule fois par rendu (et capturé par les closures de tap) plutôt qu'à chaque
-        // accès — important vu la taille possible de la liste (~16k titres).
-        let visible = tracks.onActiveServers()
+        // accès — important vu la taille possible de la liste (~16k titres). La dédup est court-circuitée
+        // s'il n'y a qu'un serveur (rien à fusionner) pour éviter une passe inutile.
+        let visible = tracks.onActiveServers().dedupedTracks(merge: mergeDuplicates && hasMultipleServers)
         return Group {
             if visible.isEmpty {
                 LibraryEmptyState(title: "Aucun titre", systemImage: "music.note")

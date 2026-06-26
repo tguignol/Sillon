@@ -65,6 +65,8 @@ struct GenreTracksView: View {
     let genre: String
     @Environment(\.playerController) private var player
     @Environment(\.modelContext) private var context
+    @Environment(\.hasMultipleServers) private var hasMultipleServers
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
     @Query private var tracks: [Track]
 
     init(genre: String) {
@@ -72,10 +74,10 @@ struct GenreTracksView: View {
         _tracks = Query(filter: #Predicate { $0.genre == genre }, sort: [SortDescriptor(\.title)])
     }
 
-    private var visibleTracks: [Track] { tracks.onActiveServers() }
-
     var body: some View {
-        List {
+        // Dédupliqué une seule fois par rendu (et court-circuité si un seul serveur).
+        let visibleTracks = tracks.onActiveServers().dedupedTracks(merge: mergeDuplicates && hasMultipleServers)
+        return List {
             ForEach(Array(visibleTracks.enumerated()), id: \.element.id) { index, track in
                 TrackRowView(track: track)
                     .contentShape(Rectangle())
@@ -135,6 +137,7 @@ struct DecadesListView: View {
 /// Albums d'une décennie donnée.
 struct DecadeAlbumsView: View {
     let decade: Int
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
     @Query private var albums: [Album]
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
@@ -145,14 +148,18 @@ struct DecadeAlbumsView: View {
                         sort: [SortDescriptor(\.year), SortDescriptor(\.title)])
     }
 
-    private var visibleAlbums: [Album] { albums.onActiveServers() }
+    private var visibleAlbums: [(album: Album, sourceCount: Int)] {
+        albums.onActiveServers().dedupedAlbums(merge: mergeDuplicates)
+    }
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                ForEach(visibleAlbums) { album in
-                    NavigationLink { AlbumDetailView(album: album) } label: { AlbumCard(album: album) }
-                        .buttonStyle(.plain)
+                ForEach(visibleAlbums, id: \.album.id) { entry in
+                    NavigationLink { AlbumDetailView(album: entry.album) } label: {
+                        AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(Spacing.l)

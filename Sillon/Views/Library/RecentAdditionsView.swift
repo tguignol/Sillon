@@ -35,7 +35,10 @@ private struct RecentAlbumsGrid: View {
         ])
     }
 
-    private var visibleAlbums: [Album] { albums.onActiveServers() }
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
+    private var visibleAlbums: [(album: Album, sourceCount: Int)] {
+        albums.onActiveServers().dedupedAlbums(merge: mergeDuplicates)
+    }
 
     var body: some View {
         if visibleAlbums.isEmpty {
@@ -43,9 +46,9 @@ private struct RecentAlbumsGrid: View {
         } else {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                    ForEach(visibleAlbums) { album in
-                        NavigationLink { AlbumDetailView(album: album) } label: {
-                            AlbumCard(album: album)
+                    ForEach(visibleAlbums, id: \.album.id) { entry in
+                        NavigationLink { AlbumDetailView(album: entry.album) } label: {
+                            AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
                         }
                         .buttonStyle(.plain)
                     }

@@ -14,8 +14,13 @@ struct FavoritesView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
-    private var visibleAlbums: [Album] { favoriteAlbums.onActiveServers() }
-    private var visibleTracks: [Track] { favoriteTracks.onActiveServers() }
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
+    private var visibleAlbums: [(album: Album, sourceCount: Int)] {
+        favoriteAlbums.onActiveServers().dedupedAlbums(merge: mergeDuplicates)
+    }
+    private var visibleTracks: [Track] {
+        favoriteTracks.onActiveServers().dedupedTracks(merge: mergeDuplicates)
+    }
 
     var body: some View {
         NavigationStack {
@@ -55,9 +60,11 @@ struct FavoritesView: View {
                 if !visibleAlbums.isEmpty {
                     sectionTitle("Albums")
                     LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                        ForEach(visibleAlbums) { album in
-                            NavigationLink(value: album) { AlbumCard(album: album) }
-                                .buttonStyle(.plain)
+                        ForEach(visibleAlbums, id: \.album.id) { entry in
+                            NavigationLink(value: entry.album) {
+                                AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, Spacing.l)

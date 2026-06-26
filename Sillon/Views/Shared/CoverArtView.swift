@@ -15,6 +15,8 @@ struct CoverArtView: View {
     var preferredSize: Int = 256
     /// Affiche une pastille de provenance en coin (uniquement si plusieurs serveurs — cf. environnement).
     var showsSource: Bool = false
+    /// Nombre de serveurs sources (dédup) : > 1 ⇒ pastille « N sources » au lieu de l'icône unique.
+    var sourceCount: Int = 1
 
     @Environment(\.artworkLoader) private var loader
     @Environment(\.hasMultipleServers) private var hasMultipleServers
@@ -35,8 +37,12 @@ struct CoverArtView: View {
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous))
         .overlay(alignment: .bottomTrailing) {
-            if showsSource, hasMultipleServers, let type = server?.type {
-                SourceBadge(type: type)
+            if showsSource, hasMultipleServers {
+                if sourceCount > 1 {
+                    SourceCountBadge(count: sourceCount)
+                } else if let type = server?.type {
+                    SourceBadge(type: type)
+                }
             }
         }
         .task(id: taskID) {

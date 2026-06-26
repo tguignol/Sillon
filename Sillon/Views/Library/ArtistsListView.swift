@@ -4,8 +4,11 @@ import SwiftData
 /// Liste des artistes, triés par nom de tri (`sortName`). Chaque ligne mène au détail de l'artiste.
 struct ArtistsListView: View {
     @Query(sort: \Artist.sortName) private var artists: [Artist]
+    @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
 
-    private var visibleArtists: [Artist] { artists.onActiveServers() }
+    private var visibleArtists: [Artist] {
+        artists.onActiveServers().dedupedArtists(merge: mergeDuplicates)
+    }
 
     var body: some View {
         Group {

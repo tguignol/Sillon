@@ -6,6 +6,8 @@ import SwiftUI
 struct AlbumCard: View {
     let album: Album
     var size: CGFloat = 150
+    /// Nombre de serveurs où cet album existe (dédup) : > 1 ⇒ pastille « N sources ».
+    var sourceCount: Int = 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
@@ -14,7 +16,8 @@ struct AlbumCard: View {
                 server: album.server,
                 seed: album.title,
                 preferredSize: Int(size * 2),
-                showsSource: true
+                showsSource: true,
+                sourceCount: sourceCount
             )
             .frame(width: size, height: size)
 
