@@ -30,6 +30,18 @@ struct EQView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    if let settings {
+                        Button {
+                            saveCurrentAsNewPreset(settings)
+                        } label: {
+                            Image(systemName: "tray.and.arrow.down.fill")
+                        }
+                        .tint(Palette.signalTeal)
+                        .disabled(allPresets.filter { $0.modeRaw == settings.mode.rawValue }.count >= maxPresetsPerMode)
+                        .help("Sauvegarder le réglage courant en preset")
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("OK") { dismiss() }
                 }
@@ -86,11 +98,11 @@ struct EQView: View {
             }
             .frame(maxHeight: .infinity)
 
-            presetsToggleButton
-
             Button("Réinitialiser (plat)") { resetFlat(settings) }
                 .buttonStyle(.bordered)
                 .tint(Palette.accentCuivre)
+
+            presetsToggleButton
         }
         .padding(.top, Spacing.l)
     }
@@ -415,6 +427,22 @@ struct EQView: View {
     private func deletePreset(_ preset: EQPreset) {
         context.delete(preset)
         try? context.save()
+    }
+
+    /// Sauvegarde le réglage courant dans un NOUVEAU preset (depuis l'icône de la barre), et ouvre
+    /// le panneau presets pour le voir / le renommer.
+    private func saveCurrentAsNewPreset(_ settings: EQSettings) {
+        let modePresets = allPresets.filter { $0.modeRaw == settings.mode.rawValue }
+        guard modePresets.count < maxPresetsPerMode else { return }
+        let nextSlot = (modePresets.map(\.slot).max() ?? 0) + 1
+        let preset = EQPreset(mode: settings.mode, slot: nextSlot)
+        preset.bandCount = settings.bandCount
+        preset.gainsDB = settings.gainsDB
+        preset.frequencies = settings.frequencies
+        preset.bandwidths = settings.bandwidths
+        context.insert(preset)
+        try? context.save()
+        withAnimation(.easeInOut(duration: 0.2)) { showPresets = true }
     }
 
     /// Applique un preset aux réglages courants (et reconstruit l'EQ si le nb de bandes change),
