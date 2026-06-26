@@ -82,8 +82,8 @@ struct AlbumDetailView: View {
             Section {
                 header
                     .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets())
-                    .padding(.vertical, Spacing.s)
+                    // Marge horizontale alignée sur celle des pistes : sans elle, la pochette colle au bord.
+                    .listRowInsets(EdgeInsets(top: Spacing.s, leading: Spacing.l, bottom: Spacing.s, trailing: Spacing.l))
             }
             Section {
                 ForEach(Array(orderedTracks.enumerated()), id: \.element.id) { index, track in
