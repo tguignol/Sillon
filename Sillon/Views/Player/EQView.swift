@@ -13,6 +13,8 @@ struct EQView: View {
     @State private var showPresets = false
     @Query(sort: \EQPreset.slot) private var allPresets: [EQPreset]
 
+    private let maxPresetsPerMode = 9
+
     var body: some View {
         NavigationStack {
             Group {
@@ -365,10 +367,31 @@ struct EQView: View {
                     .tint(Palette.signalTeal)
                 }
             }
+
+            if presets.count < maxPresetsPerMode {
+                Button { addPreset(for: settings.mode) } label: {
+                    Label("Ajouter un preset", systemImage: "plus.circle.fill")
+                        .font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Spacing.xs)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Palette.accentCuivre)
+                .padding(.top, Spacing.xs)
+            }
         }
         .frame(maxWidth: 360)              // évite des lignes trop larges
         .frame(maxWidth: .infinity)        // centre le bloc dans le panneau
         .padding(.horizontal, Spacing.l)
+    }
+
+    /// Ajoute un nouveau preset (vide) pour le mode courant, jusqu'à `maxPresetsPerMode`.
+    private func addPreset(for mode: EQMode) {
+        let modePresets = allPresets.filter { $0.modeRaw == mode.rawValue }
+        guard modePresets.count < maxPresetsPerMode else { return }
+        let nextSlot = (modePresets.map(\.slot).max() ?? 0) + 1
+        context.insert(EQPreset(mode: mode, slot: nextSlot))
+        try? context.save()
     }
 
     /// Applique un preset aux réglages courants (et reconstruit l'EQ si le nb de bandes change).
