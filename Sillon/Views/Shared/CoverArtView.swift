@@ -41,13 +41,22 @@ struct CoverArtView: View {
 
     private var taskID: String { "\(server?.id.uuidString ?? "-")|\(path ?? "-")" }
 
+    @ViewBuilder
     private var placeholder: some View {
-        Palette.placeholderGradient(seed: seed)
-            .overlay(
-                Image(systemName: symbol)
-                    .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(Palette.texteIvoire.opacity(0.35))
-            )
+        // Album/morceau sans pochette → icône de l'app (vinyle « Sillon »). Les autres usages
+        // (ex. artiste, symbole personnalisé) gardent le dégradé déterministe + symbole.
+        if symbol == "music.note" {
+            Image("SillonMark")
+                .resizable()
+                .scaledToFill()
+        } else {
+            Palette.placeholderGradient(seed: seed)
+                .overlay(
+                    Image(systemName: symbol)
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(Palette.texteIvoire.opacity(0.35))
+                )
+        }
     }
 }
 
