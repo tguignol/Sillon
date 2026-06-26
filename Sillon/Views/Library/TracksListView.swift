@@ -20,7 +20,7 @@ struct TracksListView: View {
                 LibraryEmptyState(title: "Aucun titre", systemImage: "music.note")
             } else {
                 List(Array(visible.enumerated()), id: \.element.id) { index, track in
-                    TrackRowView(track: track, showsTrackNumber: false)
+                    TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
                         .contentShape(Rectangle())
                         .onTapGesture { playerController?.play(queue: visible, startAt: index) }
                         .trackContextMenu(track: track, context: context)
