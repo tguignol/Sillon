@@ -135,14 +135,11 @@ struct AlbumDetailView: View {
                     .font(Typo.technique)
                     .foregroundStyle(Palette.signalTeal)
                     .padding(.top, Spacing.xs)
-                // Encodage d'origine (codec), sous les métadonnées : badge « FLAC », « ALAC », etc.
+                // Encodage d'origine, sous les métadonnées, dans le même style que sous les titres.
                 if let encoding = encodingSummary {
-                    Label(encoding, systemImage: "waveform")
+                    Text(encoding)
                         .font(Typo.technique)
-                        .foregroundStyle(Palette.fondNoir)
-                        .padding(.horizontal, Spacing.s)
-                        .padding(.vertical, 2)
-                        .background(Palette.signalTeal, in: Capsule())
+                        .foregroundStyle(Palette.signalTeal)
                         .padding(.top, 2)
                 }
             }

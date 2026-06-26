@@ -68,6 +68,12 @@ struct JellyfinBaseItem: Decodable, Sendable {
     let MediaStreams: [JellyfinMediaStream]?
     let ImageTags: JellyfinImageTags?
     let Genres: [String]?
+    /// Conteneur de fichier (ex: "flac", "wav", "m4a", "mp3"). Propriété racine renvoyée par défaut
+    /// pour un item audio. C'est « le format utilisé », plus fiable que le codec brut.
+    let Container: String?
+    /// Chemin du fichier sur le serveur (demandé via `Fields=Path`). Sert uniquement de repli pour
+    /// déduire l'extension si `Container` est absent ; jamais affiché ni stocké tel quel.
+    let Path: String?
     /// Gain de normalisation ReplayGain (dB, gain piste déjà prêt). Propriété racine de l'item,
     /// PAS dans MediaSources. Nullable : absent si le fichier n'a pas de tag ReplayGain et que la
     /// tâche serveur « Audio Normalization » (scan LUFS) n'a pas tourné. Pas de peak ni de gain album.
@@ -75,6 +81,22 @@ struct JellyfinBaseItem: Decodable, Sendable {
 
     var audioCodec: String? {
         MediaStreams?.first(where: { $0.StreamType == "Audio" })?.Codec
+    }
+
+    /// Format de fichier à afficher (« le format utilisé ») : on privilégie le conteneur
+    /// (flac, wav, m4a, mp3…) plutôt que le codec brut, car ce dernier est trompeur pour le PCM
+    /// (un WAV est rapporté « pcm_s24le »). Le conteneur MP4/M4A pouvant abriter AAC *ou* ALAC,
+    /// on tranche alors avec le codec. Repli : extension du chemin, puis codec.
+    var fileFormat: String? {
+        let containerRaw = Container?.split(separator: ",").first.map(String.init)
+        let pathExt = Path.map { ($0 as NSString).pathExtension }
+        let container = (containerRaw ?? pathExt)?.trimmingCharacters(in: .whitespaces).lowercased()
+        let codec = audioCodec?.trimmingCharacters(in: .whitespaces).lowercased()
+        guard let container, !container.isEmpty else { return audioCodec }
+        if ["m4a", "m4b", "mp4", "mp4a", "mka", "mov"].contains(container), let codec, !codec.isEmpty {
+            return codec   // désambiguïse le conteneur MP4 : « alac » ou « aac »
+        }
+        return container
     }
 
     var audioBitRate: Int? {

@@ -230,7 +230,7 @@ actor JellyfinProvider: ServerProvider {
         components.queryItems = [
             URLQueryItem(name: "UserId", value: userID),
             URLQueryItem(name: "Limit", value: String(limit)),
-            URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName")
+            URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName,Path")
         ]
         guard let url = components.url else { throw ProviderError.invalidURL }
         var request = URLRequest(url: url)
@@ -261,7 +261,7 @@ actor JellyfinProvider: ServerProvider {
             var query: [URLQueryItem] = [
                 URLQueryItem(name: "Recursive", value: "true"),
                 URLQueryItem(name: "IncludeItemTypes", value: includeItemTypes),
-                URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName,NormalizationGain,Genres"),
+                URLQueryItem(name: "Fields", value: "DateCreated,MediaStreams,SortName,NormalizationGain,Genres,Path"),
                 URLQueryItem(name: "SortBy", value: "SortName"),
                 URLQueryItem(name: "StartIndex", value: String(startIndex)),
                 URLQueryItem(name: "Limit", value: String(pageSize))
@@ -387,7 +387,7 @@ actor JellyfinProvider: ServerProvider {
             trackNumber: item.IndexNumber,
             discNumber: item.ParentIndexNumber,
             durationSeconds: item.durationSeconds,
-            format: item.audioCodec,
+            format: item.fileFormat,
             bitrate: item.audioBitRate,
             dateAdded: parseDate(item.DateCreated),
             genre: item.Genres?.first,
