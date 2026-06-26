@@ -46,7 +46,7 @@ struct ServerListView: View {
                     }
                 } footer: {
                     if servers.count > 1 {
-                        Text("Glissez pour réordonner : le serveur du haut est prioritaire — sa copie est lue pour un album/titre présent sur plusieurs serveurs.")
+                        Text("Le serveur du haut est prioritaire : sa copie est lue pour un album/titre présent sur plusieurs serveurs.")
                     }
                 }
 
@@ -62,11 +62,6 @@ struct ServerListView: View {
         }
         .navigationTitle("Serveurs")
         .toolbar {
-            #if os(iOS)
-            if servers.count > 1 {
-                ToolbarItem(placement: .topBarLeading) { EditButton() }
-            }
-            #endif
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     isPresentingAddServer = true
