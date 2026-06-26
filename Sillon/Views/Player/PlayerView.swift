@@ -103,23 +103,15 @@ struct PlayerView: View {
         .aspectRatio(1, contentMode: .fit)
     }
 
-    /// Détails techniques du flux en cours (codec · fréquence · profondeur · débit, puis appareil de
-    /// sortie), affichés discrètement sous la barre de progression. Texte vert (teal), sans cadre.
+    /// Info technique condensée (codec · fréquence, ex. « FLAC · 88,2 kHz »), affichée discrètement
+    /// sous la barre de progression. Texte vert (teal), sans cadre.
     @ViewBuilder
     private func technicalInfo(player: PlayerController) -> some View {
-        VStack(spacing: 2) {
-            if let format = player.currentFormatDescription, !format.isEmpty {
-                Text(format)
-                    .font(Typo.technique)
-                    .foregroundStyle(Palette.signalTeal)
-            }
-            if let output = player.audioOutput {
-                Label(output.summary, systemImage: output.transport.systemImage)
-                    .font(Typo.technique)
-                    .foregroundStyle(Palette.signalTeal)
-            }
+        if let badge = player.currentQualityBadge, !badge.isEmpty {
+            Text(badge)
+                .font(Typo.technique)
+                .foregroundStyle(Palette.signalTeal)
         }
-        .multilineTextAlignment(.center)
     }
 
     private func titles(track: Track) -> some View {

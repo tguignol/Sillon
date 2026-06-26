@@ -39,6 +39,9 @@ final class PlayerController {
     /// Description technique du flux réellement lu (codec · fréquence · profondeur · débit).
     private(set) var currentFormatDescription: String?
 
+    /// Forme condensée (codec + fréquence, ex: "FLAC · 88,2 kHz") affichée sous la barre de progression.
+    private(set) var currentQualityBadge: String?
+
     /// Sortie audio courante (transport Bluetooth/AirPlay/filaire/HP + appareil + fréquence). `nil`
     /// tant qu'aucune session audio n'est active (et sur macOS). Le codec Bluetooth A2DP n'étant pas
     /// exposé par iOS, seul le transport est renseigné — cf. `AudioOutput`.
@@ -606,6 +609,7 @@ final class PlayerController {
         nextFile = nil
         nextPreparedIndex = nil
         currentFormatDescription = Self.formatDescription(for: file, track: track)
+        currentQualityBadge = Self.qualityBadge(for: file, track: track)
 
         connectGraph(format: file.processingFormat)
         applyReplayGain()           // gain de normalisation du morceau courant (neutre si désactivé)
@@ -642,6 +646,7 @@ final class PlayerController {
         nextFile = nil
         nextPreparedIndex = nil
         currentFormatDescription = Self.formatDescription(for: file, track: track)
+        currentQualityBadge = Self.qualityBadge(for: file, track: track)
 
         deck.file = file
         deck.trackIndex = currentIndex
@@ -1236,6 +1241,22 @@ final class PlayerController {
         if asbd.mBitsPerChannel > 0 { parts.append("\(asbd.mBitsPerChannel) bit") }
         if let bitrate = track.bitrate, bitrate > 0 { parts.append("\(bitrate) kbps") }
         return parts.joined(separator: " · ")
+    }
+
+    /// Forme condensée = codec + fréquence (ex: "FLAC · 88,2 kHz", "ALAC · 44,1 kHz", "MP3 · 44,1 kHz").
+    /// Repli sur le seul codec si la fréquence est inconnue. Le détail complet (profondeur, débit)
+    /// reste dans `formatDescription`.
+    nonisolated static func qualityBadge(for file: AVAudioFile, track: Track) -> String {
+        let codec = (track.format?.isEmpty == false) ? track.format!.uppercased() : ""
+        let asbd = file.fileFormat.streamDescription.pointee
+        let sampleRate = asbd.mSampleRate > 0 ? asbd.mSampleRate : file.processingFormat.sampleRate
+        let khz = sampleRate / 1000
+        guard khz > 0 else { return codec }
+        // Entier si fréquence « ronde » (44, 48, 96…), sinon une décimale en virgule (44,1 · 88,2).
+        let khzText = khz == khz.rounded()
+            ? String(Int(khz))
+            : String(format: "%.1f", khz).replacingOccurrences(of: ".", with: ",")
+        return codec.isEmpty ? "\(khzText) kHz" : "\(codec) · \(khzText) kHz"
     }
 
     private static let savedStateKey = "sillon.lastPlaybackState"
