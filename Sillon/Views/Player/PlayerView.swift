@@ -113,6 +113,13 @@ struct PlayerView: View {
             Text(track.artistNameSnapshot ?? track.album?.artist?.name ?? "Artiste inconnu")
                 .font(.headline)
                 .foregroundStyle(.secondary)
+            if let albumTitle = track.album?.title, !albumTitle.isEmpty {
+                Text(albumTitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+            }
             // Format réellement lu (codec · fréquence · profondeur · débit), sinon le badge du titre.
             let badge = (format?.isEmpty == false) ? format! : track.technicalBadge
             if !badge.isEmpty {
