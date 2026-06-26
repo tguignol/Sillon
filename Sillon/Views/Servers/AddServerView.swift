@@ -14,7 +14,12 @@ struct AddServerView: View {
                 Section("Type de serveur") {
                     Picker("Type", selection: $viewModel.serverType) {
                         ForEach(ServerType.allCases) { type in
-                            Label(type.displayName, systemImage: type.systemImageName).tag(type)
+                            Label {
+                                Text(type.displayName)
+                            } icon: {
+                                typeIcon(type)
+                            }
+                            .tag(type)
                         }
                     }
                     .pickerStyle(.inline)
@@ -57,6 +62,16 @@ struct AddServerView: View {
                     .disabled(!viewModel.canSave || !viewModel.isConnectionVerified)
                 }
             }
+        }
+    }
+
+    /// Icône de type pour le sélecteur : logo Jellyfin / vinyle Navidrome (cf. `ServerMarks`), mais
+    /// symbole SF pour les fichiers locaux (pas de logo de marque).
+    @ViewBuilder private func typeIcon(_ type: ServerType) -> some View {
+        switch type {
+        case .jellyfin: JellyfinMark().frame(width: 22, height: 22)
+        case .subsonic:  NavidromeMark().frame(width: 22, height: 22)
+        case .local:    Image(systemName: type.systemImageName)
         }
     }
 
