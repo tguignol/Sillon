@@ -5,12 +5,14 @@ import SwiftData
 struct ArtistsListView: View {
     @Query(sort: \Artist.sortName) private var artists: [Artist]
 
+    private var visibleArtists: [Artist] { artists.onActiveServers() }
+
     var body: some View {
         Group {
-            if artists.isEmpty {
+            if visibleArtists.isEmpty {
                 LibraryEmptyState(title: "Aucun artiste", systemImage: "music.mic")
             } else {
-                List(artists) { artist in
+                List(visibleArtists) { artist in
                     NavigationLink(value: artist) {
                         ArtistRow(artist: artist)
                     }
@@ -64,7 +66,7 @@ struct ArtistDetailView: View {
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
     private var albums: [Album] {
-        artist.albums.sorted { ($0.year ?? 0, $0.title) < ($1.year ?? 0, $1.title) }
+        artist.albums.onActiveServers().sorted { ($0.year ?? 0, $0.title) < ($1.year ?? 0, $1.title) }
     }
 
     var body: some View {

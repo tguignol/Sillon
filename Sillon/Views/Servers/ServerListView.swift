@@ -17,9 +17,15 @@ struct ServerListView: View {
                 )
             } else {
                 ForEach(servers) { server in
-                    ServerRowView(server: server, syncState: viewModel.syncState(for: server.id)) {
-                        Task { await viewModel.synchronize(server, context: modelContext) }
-                    }
+                    ServerRowView(
+                        server: server,
+                        syncState: viewModel.syncState(for: server.id),
+                        onSyncTapped: { Task { await viewModel.synchronize(server, context: modelContext) } },
+                        onSetActive: { isActive in
+                            server.isActive = isActive
+                            try? modelContext.save()
+                        }
+                    )
                 }
                 .onDelete { offsets in
                     let toDelete = offsets.map { servers[$0] }

@@ -4,6 +4,8 @@ struct ServerRowView: View {
     let server: ServerAccount
     let syncState: ServerListViewModel.SyncState
     let onSyncTapped: () -> Void
+    /// Bascule actif/inactif : masque ou réaffiche les contenus du serveur dans la bibliothèque.
+    var onSetActive: (Bool) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -11,6 +13,7 @@ struct ServerRowView: View {
                 .font(.title3)
                 .foregroundStyle(Palette.accentCuivre)
                 .frame(width: 32)
+                .opacity(server.isActive ? 1 : 0.4)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(server.name)
@@ -19,8 +22,14 @@ struct ServerRowView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
+            .opacity(server.isActive ? 1 : 0.4)
 
             Spacer()
+
+            // Activer/désactiver le serveur dans la bibliothèque (non destructif).
+            Toggle("Serveur actif", isOn: Binding(get: { server.isActive }, set: { onSetActive($0) }))
+                .labelsHidden()
+                .tint(Palette.signalTeal)
 
             trailingControl
         }
@@ -32,6 +41,8 @@ struct ServerRowView: View {
         case .idle:
             Button("Synchroniser", action: onSyncTapped)
                 .buttonStyle(.bordered)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         case .syncing(let progress):
             VStack(alignment: .trailing, spacing: 4) {
                 if progress.total > 0 {

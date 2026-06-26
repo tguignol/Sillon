@@ -14,10 +14,13 @@ struct FavoritesView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
+    private var visibleAlbums: [Album] { favoriteAlbums.onActiveServers() }
+    private var visibleTracks: [Track] { favoriteTracks.onActiveServers() }
+
     var body: some View {
         NavigationStack {
             Group {
-                if favoriteAlbums.isEmpty && favoriteTracks.isEmpty {
+                if visibleAlbums.isEmpty && visibleTracks.isEmpty {
                     ContentUnavailableView(
                         "Aucun favori",
                         systemImage: "heart",
@@ -35,9 +38,9 @@ struct FavoritesView: View {
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xl) {
-                if !favoriteTracks.isEmpty {
+                if !visibleTracks.isEmpty {
                     Button {
-                        player?.play(queue: favoriteTracks.shuffled(), startAt: 0)
+                        player?.play(queue: visibleTracks.shuffled(), startAt: 0)
                     } label: {
                         Label("Mixer les favoris", systemImage: "shuffle")
                             .font(.headline)
@@ -49,10 +52,10 @@ struct FavoritesView: View {
                     .padding(.horizontal, Spacing.l)
                 }
 
-                if !favoriteAlbums.isEmpty {
+                if !visibleAlbums.isEmpty {
                     sectionTitle("Albums")
                     LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                        ForEach(favoriteAlbums) { album in
+                        ForEach(visibleAlbums) { album in
                             NavigationLink(value: album) { AlbumCard(album: album) }
                                 .buttonStyle(.plain)
                         }
@@ -60,15 +63,15 @@ struct FavoritesView: View {
                     .padding(.horizontal, Spacing.l)
                 }
 
-                if !favoriteTracks.isEmpty {
+                if !visibleTracks.isEmpty {
                     sectionTitle("Titres")
                     VStack(spacing: 0) {
-                        ForEach(Array(favoriteTracks.enumerated()), id: \.element.id) { index, track in
+                        ForEach(Array(visibleTracks.enumerated()), id: \.element.id) { index, track in
                             TrackRowView(track: track, showsTrackNumber: false)
                                 .padding(.horizontal, Spacing.l)
                                 .padding(.vertical, Spacing.xs)
                                 .contentShape(Rectangle())
-                                .onTapGesture { player?.play(queue: favoriteTracks, startAt: index) }
+                                .onTapGesture { player?.play(queue: visibleTracks, startAt: index) }
                                 .trackContextMenu(track: track, context: context)
                         }
                     }

@@ -13,7 +13,8 @@ struct AlbumCard: View {
                 path: album.coverArtRemotePath,
                 server: album.server,
                 seed: album.title,
-                preferredSize: Int(size * 2)
+                preferredSize: Int(size * 2),
+                showsSource: true
             )
             .frame(width: size, height: size)
 

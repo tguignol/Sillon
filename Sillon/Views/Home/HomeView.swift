@@ -23,10 +23,16 @@ struct HomeView: View {
 
     private let albumCardSize: CGFloat = 160
 
+    // Versions filtrées par serveurs actifs (les @Query agrègent tous les serveurs confondus).
+    private var recentAlbums: [Album] { albumsByDate.onActiveServers() }
+    private var activeFavoriteAlbums: [Album] { favoriteAlbums.onActiveServers() }
+    private var activePlayedAlbums: [Album] { playedAlbums.onActiveServers() }
+    private var activeFavoriteTracks: [Track] { favoriteTracks.onActiveServers() }
+
     var body: some View {
         NavigationStack {
             Group {
-                if albumsByDate.isEmpty {
+                if recentAlbums.isEmpty {
                     LibraryEmptyState(
                         title: "Votre disquaire est vide",
                         message: "Ajoutez un serveur dans Réglages, puis lancez une synchronisation pour retrouver votre musique ici.",
@@ -43,24 +49,28 @@ struct HomeView: View {
     }
 
     private var content: some View {
-        ScrollView {
+        // Sélections figées filtrées au rendu : si un serveur est désactivé après leur génération,
+        // ses albums disparaissent quand même de « Redécouvrir » / « Albums aléatoires ».
+        let rediscover = rediscoverAlbums.onActiveServers()
+        let random = randomAlbums.onActiveServers()
+        return ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
-                albumCarousel("Albums récents", Array(albumsByDate.prefix(30)))
+                albumCarousel("Albums récents", Array(recentAlbums.prefix(30)))
 
-                if !favoriteAlbums.isEmpty {
-                    albumCarousel("Albums préférés", Array(favoriteAlbums.prefix(30)))
+                if !activeFavoriteAlbums.isEmpty {
+                    albumCarousel("Albums préférés", Array(activeFavoriteAlbums.prefix(30)))
                 }
 
-                if !rediscoverAlbums.isEmpty {
-                    albumCarousel("Redécouvrir des albums", rediscoverAlbums)
+                if !rediscover.isEmpty {
+                    albumCarousel("Redécouvrir des albums", rediscover)
                 }
 
-                if !playedAlbums.isEmpty {
-                    albumCarousel("Continuer l'écoute", Array(playedAlbums.prefix(5)))
+                if !activePlayedAlbums.isEmpty {
+                    albumCarousel("Continuer l'écoute", Array(activePlayedAlbums.prefix(5)))
                 }
 
-                if !favoriteTracks.isEmpty {
-                    let tracks = Array(favoriteTracks.prefix(20))
+                if !activeFavoriteTracks.isEmpty {
+                    let tracks = Array(activeFavoriteTracks.prefix(20))
                     HomeSection(title: "Pistes préférées") {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             Button {
@@ -73,8 +83,8 @@ struct HomeView: View {
                     }
                 }
 
-                if !randomAlbums.isEmpty {
-                    albumCarousel("Albums aléatoires", randomAlbums)
+                if !random.isEmpty {
+                    albumCarousel("Albums aléatoires", random)
                 }
 
                 if !playlists.isEmpty {
@@ -110,12 +120,12 @@ struct HomeView: View {
     /// « Albums aléatoires ». Figées pour la durée de vie de la vue → pas de re-mélange à chaque redessin
     /// (notamment quand `lastPlayedDate` change pendant la lecture) ; renouvelées au prochain lancement.
     private func generateDiscoveryIfNeeded() {
-        guard randomAlbums.isEmpty, !albumsByDate.isEmpty else { return }
-        randomAlbums = Array(albumsByDate.shuffled().prefix(15))
+        guard randomAlbums.isEmpty, !recentAlbums.isEmpty else { return }
+        randomAlbums = Array(recentAlbums.shuffled().prefix(15))
         // « Redécouvrir » : priorité aux albums jamais lus (depuis l'ajout du champ) ; repli sur tout
         // le catalogue si trop peu d'albums jamais lus pour remplir la rangée.
-        let neverPlayed = albumsByDate.filter { $0.lastPlayedDate == nil }
-        let pool = neverPlayed.count >= 15 ? neverPlayed : albumsByDate
+        let neverPlayed = recentAlbums.filter { $0.lastPlayedDate == nil }
+        let pool = neverPlayed.count >= 15 ? neverPlayed : recentAlbums
         rediscoverAlbums = Array(pool.shuffled().prefix(15))
     }
 }

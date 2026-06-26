@@ -8,8 +8,12 @@ struct PlaylistDetailView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.playerController) private var player
 
+    // Une playlist peut mélanger des pistes de plusieurs serveurs : on masque celles d'un serveur
+    // désactivé (affichage + lecture). Cas commun (mono-serveur / tous actifs) : aucun changement.
     private var orderedItems: [PlaylistItem] {
-        playlist.items.sorted { $0.position < $1.position }
+        playlist.items
+            .filter { $0.track?.server?.isActive ?? true }
+            .sorted { $0.position < $1.position }
     }
     private var orderedTracks: [Track] { orderedItems.compactMap(\.track) }
 

@@ -48,9 +48,9 @@ struct GenresListView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .task {
-            var descriptor = FetchDescriptor<Track>(predicate: #Predicate { $0.genre != nil })
-            descriptor.propertiesToFetch = [\.genre]
-            let tracks = (try? context.fetch(descriptor)) ?? []
+            // On lit la relation `server` pour filtrer les serveurs actifs → pas de propertiesToFetch.
+            let descriptor = FetchDescriptor<Track>(predicate: #Predicate { $0.genre != nil })
+            let tracks = ((try? context.fetch(descriptor)) ?? []).onActiveServers()
             genres = Set(tracks.compactMap { g in
                 let v = g.genre?.trimmingCharacters(in: .whitespaces)
                 return (v?.isEmpty == false) ? v : nil
@@ -72,12 +72,14 @@ struct GenreTracksView: View {
         _tracks = Query(filter: #Predicate { $0.genre == genre }, sort: [SortDescriptor(\.title)])
     }
 
+    private var visibleTracks: [Track] { tracks.onActiveServers() }
+
     var body: some View {
         List {
-            ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+            ForEach(Array(visibleTracks.enumerated()), id: \.element.id) { index, track in
                 TrackRowView(track: track)
                     .contentShape(Rectangle())
-                    .onTapGesture { player?.play(queue: tracks, startAt: index) }
+                    .onTapGesture { player?.play(queue: visibleTracks, startAt: index) }
                     .trackContextMenu(track: track, context: context)
             }
         }
@@ -87,10 +89,10 @@ struct GenreTracksView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            if !tracks.isEmpty {
+            if !visibleTracks.isEmpty {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        player?.play(queue: tracks.shuffled(), startAt: 0)
+                        player?.play(queue: visibleTracks.shuffled(), startAt: 0)
                     } label: { Label("Mélanger", systemImage: "shuffle") }
                 }
             }
@@ -105,7 +107,7 @@ struct DecadesListView: View {
     @Query(sort: [SortDescriptor(\Album.year, order: .reverse)]) private var albums: [Album]
 
     private var decades: [Int] {
-        Set(albums.compactMap { $0.year.flatMap { $0 > 0 ? ($0 / 10) * 10 : nil } }).sorted(by: >)
+        Set(albums.onActiveServers().compactMap { $0.year.flatMap { $0 > 0 ? ($0 / 10) * 10 : nil } }).sorted(by: >)
     }
 
     var body: some View {
@@ -143,10 +145,12 @@ struct DecadeAlbumsView: View {
                         sort: [SortDescriptor(\.year), SortDescriptor(\.title)])
     }
 
+    private var visibleAlbums: [Album] { albums.onActiveServers() }
+
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                ForEach(albums) { album in
+                ForEach(visibleAlbums) { album in
                     NavigationLink { AlbumDetailView(album: album) } label: { AlbumCard(album: album) }
                         .buttonStyle(.plain)
                 }

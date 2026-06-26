@@ -35,13 +35,15 @@ private struct RecentAlbumsGrid: View {
         ])
     }
 
+    private var visibleAlbums: [Album] { albums.onActiveServers() }
+
     var body: some View {
-        if albums.isEmpty {
+        if visibleAlbums.isEmpty {
             LibraryEmptyState(title: "Aucun album", systemImage: "clock")
         } else {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                    ForEach(albums) { album in
+                    ForEach(visibleAlbums) { album in
                         NavigationLink { AlbumDetailView(album: album) } label: {
                             AlbumCard(album: album)
                         }

@@ -9,10 +9,18 @@ struct SearchResultsView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.playerController) private var player
+    // @Query se réévalue à chaque save du contexte (y compris un toggle isActive) → permet de relancer
+    // la recherche quand l'ensemble des serveurs actifs change.
+    @Query private var servers: [ServerAccount]
 
     @State private var artists: [Artist] = []
     @State private var albums: [Album] = []
     @State private var tracks: [Track] = []
+
+    /// Signature stable de l'ensemble des serveurs actifs, injectée dans l'id du `.task`.
+    private var activeSignature: String {
+        servers.filter(\.isActive).map { $0.id.uuidString }.sorted().joined(separator: ",")
+    }
 
     var body: some View {
         Group {
@@ -50,7 +58,7 @@ struct SearchResultsView: View {
         }
         .navigationDestination(for: Artist.self) { ArtistDetailView(artist: $0) }
         .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
-        .task(id: query) { runSearch() }
+        .task(id: "\(query)|\(activeSignature)") { runSearch() }
     }
 
     private func artistRow(_ artist: Artist) -> some View {
@@ -78,22 +86,24 @@ struct SearchResultsView: View {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 1 else { artists = []; albums = []; tracks = []; return }
 
+        // On élargit la limite de fetch puis on filtre par serveurs actifs, pour éviter qu'un serveur
+        // désactivé ne « vole » les premières places et réduise les résultats visibles.
         var artistDesc = FetchDescriptor<Artist>(
             predicate: #Predicate { $0.name.localizedStandardContains(q) },
             sortBy: [SortDescriptor(\.sortName)])
-        artistDesc.fetchLimit = 20
-        artists = (try? context.fetch(artistDesc)) ?? []
+        artistDesc.fetchLimit = 40
+        artists = Array(((try? context.fetch(artistDesc)) ?? []).onActiveServers().prefix(20))
 
         var albumDesc = FetchDescriptor<Album>(
             predicate: #Predicate { $0.title.localizedStandardContains(q) },
             sortBy: [SortDescriptor(\.title)])
-        albumDesc.fetchLimit = 20
-        albums = (try? context.fetch(albumDesc)) ?? []
+        albumDesc.fetchLimit = 40
+        albums = Array(((try? context.fetch(albumDesc)) ?? []).onActiveServers().prefix(20))
 
         var trackDesc = FetchDescriptor<Track>(
             predicate: #Predicate { $0.title.localizedStandardContains(q) },
             sortBy: [SortDescriptor(\.title)])
-        trackDesc.fetchLimit = 50
-        tracks = (try? context.fetch(trackDesc)) ?? []
+        trackDesc.fetchLimit = 100
+        tracks = Array(((try? context.fetch(trackDesc)) ?? []).onActiveServers().prefix(50))
     }
 }

@@ -41,14 +41,16 @@ struct AlbumsGridView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
 
+    private var visibleAlbums: [Album] { albums.onActiveServers() }
+
     var body: some View {
         Group {
-            if albums.isEmpty {
+            if visibleAlbums.isEmpty {
                 LibraryEmptyState(title: "Aucun album", systemImage: "square.stack")
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                        ForEach(albums) { album in
+                        ForEach(visibleAlbums) { album in
                             NavigationLink(value: album) {
                                 AlbumCard(album: album)
                             }
@@ -71,7 +73,7 @@ struct AlbumDetailView: View {
     @Environment(\.modelContext) private var context
 
     private var orderedTracks: [Track] {
-        album.tracks.sorted {
+        album.tracks.onActiveServers().sorted {
             ($0.discNumber ?? 1, $0.trackNumber ?? 0, $0.title)
                 < ($1.discNumber ?? 1, $1.trackNumber ?? 0, $1.title)
         }
@@ -119,7 +121,7 @@ struct AlbumDetailView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: Spacing.l) {
-            CoverArtView(path: album.coverArtRemotePath, server: album.server, seed: album.title)
+            CoverArtView(path: album.coverArtRemotePath, server: album.server, seed: album.title, showsSource: true)
                 .frame(width: 120, height: 120)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {

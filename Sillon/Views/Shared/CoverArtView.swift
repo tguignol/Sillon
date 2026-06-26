@@ -13,8 +13,11 @@ struct CoverArtView: View {
     var symbol: String = "music.note"
     /// Taille de vignette demandée au serveur (px). N'impose pas la taille d'affichage SwiftUI.
     var preferredSize: Int = 256
+    /// Affiche une pastille de provenance en coin (uniquement si plusieurs serveurs — cf. environnement).
+    var showsSource: Bool = false
 
     @Environment(\.artworkLoader) private var loader
+    @Environment(\.hasMultipleServers) private var hasMultipleServers
     @State private var resolvedURL: URL?
     @State private var didResolve = false
 
@@ -31,6 +34,11 @@ struct CoverArtView: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous))
+        .overlay(alignment: .bottomTrailing) {
+            if showsSource, hasMultipleServers, let type = server?.type {
+                SourceBadge(type: type)
+            }
+        }
         .task(id: taskID) {
             guard !didResolve else { return }
             didResolve = true

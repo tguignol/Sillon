@@ -39,6 +39,11 @@ final class ServerAccount {
     var baseURLString: String
     var username: String
 
+    /// Serveur actif : ses contenus apparaissent dans la bibliothèque (accueil, grilles, recherche…).
+    /// Le désactiver les masque SANS supprimer — réactivation instantanée, sans re-synchronisation.
+    /// Migration légère (valeur par défaut, aucun MigrationPlan requis).
+    var isActive: Bool = true
+
     /// Uniquement pour `.local` : bookmark de sécurité (App Sandbox / iOS) vers le dossier choisi par l'utilisateur.
     /// Permet de retrouver l'accès au dossier après redémarrage sans nouvelle demande de permission.
     var localFolderBookmark: Data?

@@ -12,7 +12,8 @@ struct TrackCard: View {
                 path: track.album?.coverArtRemotePath,
                 server: track.server,
                 seed: track.album?.title ?? track.title,
-                preferredSize: Int(size * 2)
+                preferredSize: Int(size * 2),
+                showsSource: true
             )
             .frame(width: size, height: size)
 
