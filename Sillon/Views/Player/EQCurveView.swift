@@ -48,6 +48,10 @@ struct EQCurveView: View {
                     .onChanged { value in
                         selectedBand = i
                         ensureArrays()
+                        // La bande peut avoir disparu entre-temps (réduction du nombre de bandes) :
+                        // on ne touche aux tableaux que si l'index est encore valide.
+                        guard settings.gainsDB.indices.contains(i),
+                              settings.frequencies.indices.contains(i) else { return }
                         let f = freq(forX: value.location.x, width: size.width)
                         let g = gain(forY: value.location.y, height: size.height)
                         settings.frequencies[i] = min(maxFreq, max(minFreq, f))
@@ -66,8 +70,10 @@ struct EQCurveView: View {
     }
 
     private func point(forBand i: Int, size: CGSize) -> CGPoint {
+        // Lecture bornée : une poignée en cours de suppression (après réduction des bandes) ne doit
+        // pas indexer hors plage pendant le rendu.
         CGPoint(x: x(forFreq: bandFreq(i), width: size.width),
-                y: y(forGain: settings.gainsDB[i], height: size.height))
+                y: y(forGain: settings.gain(at: i), height: size.height))
     }
 
     private func x(forFreq f: Double, width: CGFloat) -> CGFloat {

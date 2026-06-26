@@ -130,13 +130,17 @@ struct EQView: View {
     private func bandSlider(settings: EQSettings, index: Int) -> some View {
         let frequencies = EQBands.frequencies(count: settings.bandCount)
         return VStack(spacing: Spacing.xs) {
-            Text(String(format: "%+.0f", settings.gainsDB[index]))
+            Text(String(format: "%+.0f", settings.gain(at: index)))
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Palette.signalTeal)
             Slider(
                 value: Binding(
-                    get: { settings.gainsDB[index] },
-                    set: { settings.gainsDB[index] = $0; commit(settings) }
+                    get: { settings.gain(at: index) },
+                    set: { newValue in
+                        guard settings.gainsDB.indices.contains(index) else { return }
+                        settings.gainsDB[index] = newValue
+                        commit(settings)
+                    }
                 ),
                 in: Double(EQBands.minGainDB)...Double(EQBands.maxGainDB)
             )
@@ -207,14 +211,18 @@ struct EQView: View {
                 Text("Bande \(index + 1)")
                     .font(.subheadline).foregroundStyle(Palette.texteIvoire)
                 Spacer()
-                Text("\(EQBands.label(for: Float(freq))) Hz · \(String(format: "%+.0f", settings.gainsDB[index])) dB · \(String(format: "%.1f", bw)) oct")
+                Text("\(EQBands.label(for: Float(freq))) Hz · \(String(format: "%+.0f", settings.gain(at: index))) dB · \(String(format: "%.1f", bw)) oct")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(Palette.signalTeal)
             }
             labeledSlider(
                 "Gain",
-                value: Binding(get: { settings.gainsDB[index] },
-                               set: { settings.gainsDB[index] = $0; commit(settings) }),
+                value: Binding(get: { settings.gain(at: index) },
+                               set: { newValue in
+                                   guard settings.gainsDB.indices.contains(index) else { return }
+                                   settings.gainsDB[index] = newValue
+                                   commit(settings)
+                               }),
                 range: Double(EQBands.minGainDB)...Double(EQBands.maxGainDB)
             )
             // Fréquence sur échelle logarithmique (20 Hz … 20 kHz).

@@ -60,3 +60,13 @@ final class EQSettings {
         self.updatedAt = .now
     }
 }
+
+extension EQSettings {
+    /// Lecture bornée du gain d'une bande : renvoie 0 si l'index est hors plage. Indispensable car
+    /// après une réduction du nombre de bandes, SwiftUI ré-évalue brièvement la ligne en cours de
+    /// suppression avec un index désormais hors bornes (le tableau `gainsDB` a déjà rétréci) — sans
+    /// cette garde l'accès `gainsDB[index]` lèverait « Index out of range » et planterait l'app.
+    func gain(at index: Int) -> Double {
+        gainsDB.indices.contains(index) ? gainsDB[index] : 0
+    }
+}
