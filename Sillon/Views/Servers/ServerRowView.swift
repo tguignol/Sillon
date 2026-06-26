@@ -9,10 +9,8 @@ struct ServerRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: server.type.systemImageName)
-                .font(.title3)
-                .foregroundStyle(Palette.accentCuivre)
-                .frame(width: 32)
+            typeIcon
+                .frame(width: 30, height: 30)
                 .opacity(server.isActive ? 1 : 0.4)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -34,6 +32,19 @@ struct ServerRowView: View {
             trailingControl
         }
         .padding(.vertical, 4)
+    }
+
+    /// Icône du serveur : logo Jellyfin / vinyle Navidrome (cf. `ServerMarks`), ou symbole SF cuivré
+    /// pour un dossier local (pas de logo de marque).
+    @ViewBuilder private var typeIcon: some View {
+        switch server.type {
+        case .jellyfin: JellyfinMark()
+        case .subsonic:  NavidromeMark()
+        case .local:
+            Image(systemName: server.type.systemImageName)
+                .font(.title3)
+                .foregroundStyle(Palette.accentCuivre)
+        }
     }
 
     @ViewBuilder private var trailingControl: some View {
