@@ -20,8 +20,8 @@ struct HomeView: View {
     /// Sélections aléatoires figées une fois la bibliothèque chargée (cf. `generateDiscoveryIfNeeded`).
     @State private var rediscoverAlbums: [Album] = []
     @State private var randomAlbums: [Album] = []
-    /// Incrémenté à chaque re-mélange manuel de « Redécouvrir » (déclenche le retour haptique).
-    @State private var rediscoverShuffleToken = 0
+    /// Incrémenté à chaque re-mélange manuel (« Redécouvrir » ou « Aléatoires ») — déclenche le retour haptique.
+    @State private var shuffleToken = 0
 
     private let albumCardSize: CGFloat = 160
 
@@ -124,7 +124,8 @@ struct HomeView: View {
                 }
 
                 if !random.isEmpty {
-                    albumCarousel("Albums aléatoires", random)
+                    // Même geste que « Redécouvrir » : overscroll à l'un des bords → nouveau tirage.
+                    albumCarousel("Albums aléatoires", random, onEdgeOverscroll: regenerateRandom)
                 }
 
 
@@ -143,7 +144,7 @@ struct HomeView: View {
         }
         .onAppear(perform: generateDiscoveryIfNeeded)
         // Petit retour haptique à chaque re-mélange de « Redécouvrir » (no-op sur macOS).
-        .sensoryFeedback(.impact(weight: .light), trigger: rediscoverShuffleToken)
+        .sensoryFeedback(.impact(weight: .light), trigger: shuffleToken)
     }
 
     /// Accès rapides en haut de l'Accueil : Albums, Artistes, Mixer les favoris.
@@ -212,7 +213,18 @@ struct HomeView: View {
         withAnimation(.easeInOut(duration: 0.3)) {
             rediscoverAlbums = Array(pool.shuffled().prefix(15))
         }
-        rediscoverShuffleToken += 1
+        shuffleToken += 1
+    }
+
+    /// Re-tire la sélection « Albums aléatoires » (tirage uniforme dans tout le catalogue dédupliqué).
+    /// Déclenché par un overscroll à l'un des bords du carrousel (gauche ou droite).
+    private func regenerateRandom() {
+        guard !recentAlbums.isEmpty else { return }
+        let deduped = recentAlbums.dedupedAlbums(merge: mergeDuplicates).map(\.album)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            randomAlbums = Array(deduped.shuffled().prefix(15))
+        }
+        shuffleToken += 1
     }
 }
 
