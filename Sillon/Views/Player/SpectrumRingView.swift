@@ -18,7 +18,7 @@ enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
         case .waveform: "Ondulation"
         case .cascade: "Cascade"
         case .oscilloscope: "Oscilloscope"
-        case .off: "Aucun (pochette carrée)"
+        case .off: "Aucun"
         }
     }
 
@@ -29,7 +29,7 @@ enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
         case .waveform: "wave.3.right"
         case .cascade: "square.stack.3d.up.fill"
         case .oscilloscope: "waveform.path.ecg"
-        case .off: "square"
+        case .off: "circle"
         }
     }
 }
@@ -75,11 +75,6 @@ struct SpectrumRingView: View {
         return (center, base, maxBar)
     }
 
-    private func baseRing(_ context: GraphicsContext, _ center: CGPoint, _ radius: CGFloat) {
-        let circle = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
-        context.stroke(circle, with: .color(Palette.surfaceElevee), lineWidth: 1)
-    }
-
     /// Niveaux miroités (gauche/droite) pour une couronne symétrique, graves en haut.
     private func mirrored(_ values: [Float]) -> [Float] {
         values + values.reversed()
@@ -90,7 +85,6 @@ struct SpectrumRingView: View {
     private func drawCircularBars(_ context: GraphicsContext, _ size: CGSize) {
         guard !levels.isEmpty else { return }
         let g = geometry(size)
-        baseRing(context, g.center, g.base)
         let values = mirrored(levels)
         for (i, v) in values.enumerated() {
             let level = CGFloat(max(0, min(1, v)))
@@ -106,7 +100,6 @@ struct SpectrumRingView: View {
     private func drawBars(_ context: GraphicsContext, _ size: CGSize) {
         guard !levels.isEmpty else { return }
         let g = geometry(size)
-        baseRing(context, g.center, g.base)
         let values = mirrored(levels)
         let count = values.count
         for (i, v) in values.enumerated() {
@@ -149,7 +142,6 @@ struct SpectrumRingView: View {
     private func drawOscilloscope(_ context: GraphicsContext, _ size: CGSize) {
         guard waveform.count > 2 else { drawCircularBars(context, size); return }
         let g = geometry(size)
-        baseRing(context, g.center, g.base)
         let amplitude = g.maxBar * 0.7
         var path = Path()
         let count = waveform.count

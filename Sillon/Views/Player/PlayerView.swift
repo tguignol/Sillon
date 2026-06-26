@@ -99,9 +99,10 @@ struct PlayerView: View {
     private func artwork(track: Track, player: PlayerController) -> some View {
         Group {
             if spectrumStyle == .off {
-                // Spectre désactivé → pochette carrée (artwork plein), façon Apple Music.
+                // Spectre désactivé → pochette ronde, sans anneau (préférence : garder le caractère « rond »).
                 CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(Circle())
+                    .padding(28)
             } else {
                 ZStack {
                     SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
