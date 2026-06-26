@@ -30,7 +30,10 @@ struct PlayerView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .transition(.opacity)
                 } else {
+                    // Marge sous la pochette : les barres de spectre atteignent presque le bord du
+                    // cadre ; on évite qu'elles paraissent toucher/passer sous le titre juste dessous.
                     artwork(track: track, player: player)
+                        .padding(.bottom, Spacing.l)
                 }
                 titles(track: track)
                 progressSection(player: player)
