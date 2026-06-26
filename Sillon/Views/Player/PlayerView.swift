@@ -31,9 +31,9 @@ struct PlayerView: View {
                         .transition(.opacity)
                 } else {
                     // Marge sous la pochette : les barres de spectre atteignent presque le bord du
-                    // cadre ; on évite qu'elles paraissent toucher/passer sous le titre juste dessous.
+                    // cadre ; on remonte l'ensemble et on sépare nettement du titre juste dessous.
                     artwork(track: track, player: player)
-                        .padding(.bottom, Spacing.l)
+                        .padding(.bottom, Spacing.xxl)
                 }
                 titles(track: track)
                 progressSection(player: player)
@@ -95,12 +95,21 @@ struct PlayerView: View {
         }
     }
 
+    @ViewBuilder
     private func artwork(track: Track, player: PlayerController) -> some View {
-        ZStack {
-            SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
-            CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
-                .clipShape(Circle())
-                .padding(28)   // pochette plus grande → l'anneau de spectre la serre de plus près
+        Group {
+            if spectrumStyle == .off {
+                // Spectre désactivé → pochette carrée (artwork plein), façon Apple Music.
+                CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                ZStack {
+                    SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
+                    CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
+                        .clipShape(Circle())
+                        .padding(28)   // pochette plus grande → l'anneau de spectre la serre de plus près
+                }
+            }
         }
         .frame(maxWidth: 344)
         .aspectRatio(1, contentMode: .fit)
