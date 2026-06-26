@@ -13,9 +13,9 @@ enum EQMode: String, Codable, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .normal: "Normal"
-        case .parametric: "Paramétrique"
-        case .graphic: "Graphique"
+        case .normal: LanguageManager.string("Normal")
+        case .parametric: LanguageManager.string("Paramétrique")
+        case .graphic: LanguageManager.string("Graphique")
         }
     }
 }

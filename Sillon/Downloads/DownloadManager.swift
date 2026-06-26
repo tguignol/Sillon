@@ -161,7 +161,7 @@ final class DownloadManager {
                         self.finalize(trackID: record.trackID, destinationPath: path)
                     } else {
                         record.status = .failed
-                        record.errorMessage = "Téléchargement interrompu"
+                        record.errorMessage = LanguageManager.string("Téléchargement interrompu")
                         self.track(for: record.trackID)?.downloadStatus = .failed
                     }
                 }

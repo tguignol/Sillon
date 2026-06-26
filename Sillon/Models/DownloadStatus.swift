@@ -10,11 +10,11 @@ enum DownloadStatus: String, Codable, Hashable, Sendable {
 
     var label: String {
         switch self {
-        case .notDownloaded: "Non téléchargé"
-        case .queued: "En attente"
-        case .downloading: "Téléchargement…"
-        case .downloaded: "Téléchargé"
-        case .failed: "Échec"
+        case .notDownloaded: LanguageManager.string("Non téléchargé")
+        case .queued: LanguageManager.string("En attente")
+        case .downloading: LanguageManager.string("Téléchargement…")
+        case .downloaded: LanguageManager.string("Téléchargé")
+        case .failed: LanguageManager.string("Échec")
         }
     }
 

@@ -175,7 +175,7 @@ struct HomeView: View {
     /// Carrousel d'albums standard (carte + navigation vers le détail). `onEdgeOverscroll`, s'il est
     /// fourni, est appelé quand on tire la rangée au-delà de l'un de ses bords (cf. « Redécouvrir »).
     @ViewBuilder
-    private func albumCarousel(_ title: String,
+    private func albumCarousel(_ title: LocalizedStringKey,
                                _ entries: [(album: Album, sourceCount: Int)],
                                onEdgeOverscroll: (() -> Void)? = nil) -> some View {
         HomeSection(title: title, onEdgeOverscroll: onEdgeOverscroll) {
@@ -236,7 +236,7 @@ struct HomeView: View {
 /// déclencher qu'une fois par geste, et seulement attaché si l'action est fournie (zéro surcoût
 /// d'observation du défilement pour les autres carrousels).
 private struct HomeSection<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     var onEdgeOverscroll: (() -> Void)? = nil
     @ViewBuilder let content: Content
 
@@ -284,7 +284,7 @@ private struct HomeSection<Content: View>: View {
 
 /// Carte d'accès rapide (icône + libellé) affichée en haut de l'Accueil.
 private struct QuickAction: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
 
     var body: some View {

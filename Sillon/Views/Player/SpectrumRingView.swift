@@ -14,13 +14,13 @@ enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .circularBars: "Cercle de fréquences"
-        case .bars: "Barres"
-        case .waveform: "Ondulation"
-        case .cascade: "Cascade"
-        case .oscilloscope: "Oscilloscope"
-        case .off: "Aucun (vignette ronde)"
-        case .offSquare: "Aucun (vignette carrée)"
+        case .circularBars: LanguageManager.string("Cercle de fréquences")
+        case .bars: LanguageManager.string("Barres")
+        case .waveform: LanguageManager.string("Ondulation")
+        case .cascade: LanguageManager.string("Cascade")
+        case .oscilloscope: LanguageManager.string("Oscilloscope")
+        case .off: LanguageManager.string("Aucun (vignette ronde)")
+        case .offSquare: LanguageManager.string("Aucun (vignette carrée)")
         }
     }
 

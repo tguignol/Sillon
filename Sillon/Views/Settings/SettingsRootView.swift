@@ -5,6 +5,7 @@ import SwiftData
 /// aux commits "Lecteur + Égaliseur" et suivants — ce commit n'introduit que la gestion des serveurs.
 struct SettingsRootView: View {
     @AppStorage("appearanceMode") private var appearanceRaw = AppearanceMode.sombre.rawValue
+    @AppStorage(LanguageManager.storageKey) private var languageRaw = AppLanguage.system.rawValue
 
     var body: some View {
         NavigationStack {
@@ -17,6 +18,23 @@ struct SettingsRootView: View {
                     Label("Apparence", systemImage: "circle.lefthalf.filled")
                 }
                 .pickerStyle(.menu)
+
+                Picker(selection: Binding(
+                    get: { languageRaw },
+                    set: { newValue in
+                        // On applique la redirection de bundle AVANT que la racine ne se reconstruise
+                        // (via son `.id(langue)`), pour que tout le texte s'affiche dans la nouvelle langue.
+                        LanguageManager.apply(AppLanguage(rawValue: newValue) ?? .system)
+                        languageRaw = newValue
+                    }
+                )) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang.rawValue)
+                    }
+                } label: {
+                    Label("Langue", systemImage: "globe")
+                }
+                .pickerStyle(.navigationLink)
                 NavigationLink {
                     ServerListView()
                 } label: {

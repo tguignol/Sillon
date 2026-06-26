@@ -118,9 +118,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .systeme: "Système"
-        case .clair:   "Clair"
-        case .sombre:  "Sombre"
+        case .systeme: LanguageManager.string("Système")
+        case .clair:   LanguageManager.string("Clair")
+        case .sombre:  LanguageManager.string("Sombre")
         }
     }
     var systemImage: String {

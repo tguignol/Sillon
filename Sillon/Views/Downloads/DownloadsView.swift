@@ -109,9 +109,9 @@ private struct DownloadRow: View {
 
     private var subtitle: String {
         switch task.status {
-        case .failed: return task.errorMessage ?? "Échec"
-        case .downloaded: return "Téléchargé"
-        case .queued: return "En attente"
+        case .failed: return task.errorMessage ?? LanguageManager.string("Échec")
+        case .downloaded: return LanguageManager.string("Téléchargé")
+        case .queued: return LanguageManager.string("En attente")
         default: return task.status.label
         }
     }

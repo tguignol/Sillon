@@ -87,7 +87,7 @@ final class AddServerViewModel {
     func didPickLocalFolder(_ url: URL) {
         invalidateConnectionTest()
         guard url.startAccessingSecurityScopedResource() else {
-            connectionTest = .failure("Accès au dossier refusé par le système.")
+            connectionTest = .failure(LanguageManager.string("Accès au dossier refusé par le système."))
             return
         }
         defer { url.stopAccessingSecurityScopedResource() }
@@ -102,7 +102,7 @@ final class AddServerViewModel {
             localFolderDisplayName = url.lastPathComponent
             if name.isEmpty { name = url.lastPathComponent }
         } catch {
-            connectionTest = .failure("Impossible de mémoriser l'accès au dossier : \(error.localizedDescription)")
+            connectionTest = .failure(LanguageManager.string("Impossible de mémoriser l'accès au dossier : %@", error.localizedDescription))
         }
     }
 
@@ -114,9 +114,9 @@ final class AddServerViewModel {
             let provider = try makeDraftProvider()
             let session = try await provider.authenticate()
             if serverType == .local {
-                connectionTest = .success("Accès au dossier confirmé (\(session.serverDisplayName ?? "dossier")).")
+                connectionTest = .success(LanguageManager.string("Accès au dossier confirmé (%@).", session.serverDisplayName ?? LanguageManager.string("dossier")))
             } else {
-                connectionTest = .success(session.serverVersion.map { "Connexion réussie (version \($0))." } ?? "Connexion réussie.")
+                connectionTest = .success(session.serverVersion.map { LanguageManager.string("Connexion réussie (version %@).", $0) } ?? LanguageManager.string("Connexion réussie."))
             }
         } catch {
             connectionTest = .failure((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
@@ -127,7 +127,7 @@ final class AddServerViewModel {
     /// désactivé tant que `isConnectionVerified` est faux), mais on préfère échouer explicitement
     /// plutôt que d'enregistrer un serveur dont la connexion n'a jamais été vérifiée.
     private struct ConnectionNotVerifiedError: LocalizedError {
-        var errorDescription: String? { "La connexion doit être testée avec succès avant l'enregistrement." }
+        var errorDescription: String? { LanguageManager.string("La connexion doit être testée avec succès avant l'enregistrement.") }
     }
 
     func save(in context: ModelContext) throws {
@@ -189,7 +189,7 @@ final class AddServerViewModel {
         switch serverType {
         case .jellyfin: "Jellyfin"
         case .subsonic: "Navidrome"
-        case .local: localFolderDisplayName ?? "Dossier local"
+        case .local: localFolderDisplayName ?? LanguageManager.string("Dossier local")
         }
     }
 }

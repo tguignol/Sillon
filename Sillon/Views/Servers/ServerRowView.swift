@@ -79,22 +79,22 @@ struct ServerRowView: View {
 
     private static func label(for progress: LibrarySyncService.Progress) -> String {
         switch progress.phase {
-        case .authenticating: return "Connexion…"
-        case .fetchingLibrary: return "Analyse complète…"
-        case .fetchingDelta: return "Mise à jour…"
+        case .authenticating: return LanguageManager.string("Connexion…")
+        case .fetchingLibrary: return LanguageManager.string("Analyse complète…")
+        case .fetchingDelta: return LanguageManager.string("Mise à jour…")
         case .applying:
-            return progress.total > 0 ? "\(progress.processed)/\(progress.total)" : "Écriture…"
+            return progress.total > 0 ? "\(progress.processed)/\(progress.total)" : LanguageManager.string("Écriture…")
         case .fetchingArtwork:
-            return progress.total > 0 ? "Pochettes \(progress.processed)/\(progress.total)" : "Pochettes…"
-        case .done: return "Terminé"
+            return progress.total > 0 ? LanguageManager.string("Pochettes %lld/%lld", progress.processed, progress.total) : LanguageManager.string("Pochettes…")
+        case .done: return LanguageManager.string("Terminé")
         }
     }
 
     private var subtitle: String {
         if let lastSync = server.lastDeltaSyncDate {
-            return "Dernière synchro : \(lastSync.formatted(date: .abbreviated, time: .shortened))"
+            return LanguageManager.string("Dernière synchro : %@", lastSync.formatted(date: .abbreviated, time: .shortened))
         }
-        return "Jamais synchronisé"
+        return LanguageManager.string("Jamais synchronisé")
     }
 }
 

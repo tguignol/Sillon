@@ -15,10 +15,10 @@ struct AudioOutput: Equatable {
             switch self {
             case .bluetooth: "Bluetooth"
             case .airPlay: "AirPlay"
-            case .wired: "Filaire"
-            case .speaker: "Haut-parleur"
-            case .builtIn: "Écouteur"
-            case .other: "Sortie"
+            case .wired: LanguageManager.string("Filaire")
+            case .speaker: LanguageManager.string("Haut-parleur")
+            case .builtIn: LanguageManager.string("Écouteur")
+            case .other: LanguageManager.string("Sortie")
             }
         }
 

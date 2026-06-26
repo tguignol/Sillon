@@ -14,21 +14,21 @@ enum ProviderError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "L'adresse du serveur est invalide."
+            return LanguageManager.string("L'adresse du serveur est invalide.")
         case .unauthorized:
-            return "Identifiants refusés par le serveur."
+            return LanguageManager.string("Identifiants refusés par le serveur.")
         case .unreachable(let underlying):
-            return "Serveur inaccessible : \(underlying.localizedDescription)"
+            return LanguageManager.string("Serveur inaccessible : %@", underlying.localizedDescription)
         case .unexpectedResponse(let code, _):
-            return "Réponse inattendue du serveur (code \(code))."
+            return LanguageManager.string("Réponse inattendue du serveur (code %lld).", code)
         case .decodingFailed:
-            return "Réponse du serveur illisible (format inattendu)."
+            return LanguageManager.string("Réponse du serveur illisible (format inattendu).")
         case .unsupportedServerVersion(let version):
-            return "Version de serveur non prise en charge : \(version)."
+            return LanguageManager.string("Version de serveur non prise en charge : %@.", version)
         case .missingCredentials:
-            return "Identifiants manquants pour ce serveur."
+            return LanguageManager.string("Identifiants manquants pour ce serveur.")
         case .cancelled:
-            return "Opération annulée."
+            return LanguageManager.string("Opération annulée.")
         }
     }
 }

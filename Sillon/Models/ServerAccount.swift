@@ -13,7 +13,7 @@ enum ServerType: String, Codable, CaseIterable, Identifiable, Hashable, Sendable
         switch self {
         case .jellyfin: "Jellyfin"
         case .subsonic: "Navidrome / Subsonic"
-        case .local: "Fichiers locaux"
+        case .local: LanguageManager.string("Fichiers locaux")
         }
     }
 

@@ -12,9 +12,9 @@ enum ReplayGainMode: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .off:   "Désactivé"
-        case .track: "Piste"
-        case .album: "Album"
+        case .off:   LanguageManager.string("Désactivé")
+        case .track: LanguageManager.string("Piste")
+        case .album: LanguageManager.string("Album")
         }
     }
 

@@ -15,9 +15,9 @@ enum KeychainError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unexpectedStatus(let status):
-            return "Erreur Keychain (code \(status))."
+            return LanguageManager.string("Erreur Keychain (code %d).", status)
         case .encodingFailed:
-            return "Impossible d'encoder la valeur à stocker."
+            return LanguageManager.string("Impossible d'encoder la valeur à stocker.")
         }
     }
 }

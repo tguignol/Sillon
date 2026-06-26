@@ -7,10 +7,10 @@ enum AlbumSortOrder: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .titre:   "Titre"
-        case .artiste: "Artiste"
-        case .annee:   "Année"
-        case .recent:  "Ajouts récents"
+        case .titre:   LanguageManager.string("Titre")
+        case .artiste: LanguageManager.string("Artiste")
+        case .annee:   LanguageManager.string("Année")
+        case .recent:  LanguageManager.string("Ajouts récents")
         }
     }
     var systemImage: String {

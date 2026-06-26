@@ -87,8 +87,8 @@ struct LibraryRootView: View {
 
 /// État vide partagé par les sections de bibliothèque quand aucune donnée n'a encore été synchronisée.
 struct LibraryEmptyState: View {
-    var title: String = "Bibliothèque vide"
-    var message: String = "Ajoutez un serveur dans Réglages, puis lancez une synchronisation pour voir votre musique ici."
+    var title: LocalizedStringKey = "Bibliothèque vide"
+    var message: LocalizedStringKey = "Ajoutez un serveur dans Réglages, puis lancez une synchronisation pour voir votre musique ici."
     var systemImage: String = "music.note.list"
 
     var body: some View {
