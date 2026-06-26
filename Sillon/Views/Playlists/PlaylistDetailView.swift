@@ -32,7 +32,7 @@ struct PlaylistDetailView: View {
                 List {
                     ForEach(Array(orderedItems.enumerated()), id: \.element.id) { index, item in
                         if let track = item.track {
-                            TrackRowView(track: track, showsTrackNumber: false)
+                            TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
                                 .contentShape(Rectangle())
                                 .onTapGesture { player?.play(queue: orderedTracks, startAt: index) }
                                 .trackContextMenu(track: track, context: context)
