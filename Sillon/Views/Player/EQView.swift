@@ -33,7 +33,7 @@ struct EQView: View {
             .background(Palette.fondNoir)
         }
         .task {
-            EQPresetStore.ensure(context)    // crée les 4 mémoires par défaut de chaque mode
+            EQPresetStore.ensure(context)    // crée les 4 presets par défaut de chaque mode
             let loaded = EQSettingsStore.load(context)
             ensureParametricArrays(loaded)   // les deux modes éditent fréquences/largeurs
             settings = loaded
@@ -292,7 +292,7 @@ struct EQView: View {
         player?.refreshEQ()
     }
 
-    // MARK: - Mémoires (presets)
+    // MARK: - Presets
 
     private func presetsSection(_ settings: EQSettings) -> some View {
         let presets = allPresets.filter { $0.modeRaw == settings.mode.rawValue }
@@ -327,7 +327,7 @@ struct EQView: View {
         .padding(.horizontal, Spacing.l)
     }
 
-    /// Charge une mémoire dans les réglages courants (et reconstruit l'EQ si le nb de bandes change).
+    /// Applique un preset aux réglages courants (et reconstruit l'EQ si le nb de bandes change).
     private func loadPreset(_ preset: EQPreset, into settings: EQSettings) {
         settings.mode = preset.mode
         settings.bandCount = preset.bandCount
@@ -339,7 +339,7 @@ struct EQView: View {
         commit(settings)
     }
 
-    /// Enregistre les réglages courants dans une mémoire.
+    /// Enregistre les réglages courants dans un preset.
     private func savePreset(_ preset: EQPreset, from settings: EQSettings) {
         preset.bandCount = settings.bandCount
         preset.gainsDB = settings.gainsDB

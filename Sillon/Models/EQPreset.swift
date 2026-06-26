@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Mémoire d'égaliseur : 4 emplacements par mode (Graphique / Paramétrique), nommables.
+/// Preset d'égaliseur : 4 emplacements par mode (Normal / Paramétrique / Graphique), nommables.
 /// Stocke un instantané complet des réglages (nombre de bandes, gains, fréquences, largeurs).
 @Model
 final class EQPreset {
@@ -28,7 +28,7 @@ final class EQPreset {
     }
 }
 
-/// Crée à la demande les 4 mémoires par défaut de chaque mode (« Réglage 1…4 »).
+/// Crée à la demande les 4 presets par défaut de chaque mode (« Réglage 1…4 »).
 @MainActor
 enum EQPresetStore {
     static func ensure(_ context: ModelContext) {
