@@ -98,22 +98,27 @@ struct PlayerView: View {
     @ViewBuilder
     private func artwork(track: Track, player: PlayerController) -> some View {
         Group {
-            if spectrumStyle == .off {
-                // Spectre désactivé → pochette ronde, sans anneau (préférence : garder le caractère « rond »).
-                CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
-                    .clipShape(Circle())
-                    .padding(28)
-            } else {
+            switch spectrumStyle {
+            case .off:
+                // Sans spectre, ronde AGRANDIE : on occupe l'espace que prenait le spectre.
+                cover(track).clipShape(Circle()).padding(Spacing.xs)
+            case .offSquare:
+                // Sans spectre, carrée à coins arrondis (artwork plein cadre).
+                cover(track).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            default:
                 ZStack {
                     SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
-                    CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
-                        .clipShape(Circle())
-                        .padding(28)   // pochette plus grande → l'anneau de spectre la serre de plus près
+                    cover(track).clipShape(Circle()).padding(28)   // serré par l'anneau de spectre
                 }
             }
         }
         .frame(maxWidth: 344)
         .aspectRatio(1, contentMode: .fit)
+    }
+
+    private func cover(_ track: Track) -> some View {
+        CoverArtView(path: track.album?.coverArtRemotePath, server: track.server,
+                     seed: track.album?.title ?? track.title, preferredSize: 600)
     }
 
     /// Info technique condensée (codec · fréquence, ex. « FLAC · 88,2 kHz »), affichée discrètement
@@ -220,7 +225,8 @@ struct PlayerView: View {
     }
 
     private func bottomRow(track: Track, player: PlayerController) -> some View {
-        HStack(spacing: Spacing.l) {
+        // Un Spacer entre chaque icône → répartition régulière sur toute la largeur.
+        HStack(spacing: 0) {
             Button { player.toggleFavoriteOfCurrent() } label: {
                 Image(systemName: track.isFavorite ? "heart.fill" : "heart")
                     .foregroundStyle(track.isFavorite ? Palette.accentCuivre : Palette.texteIvoire)
@@ -230,18 +236,22 @@ struct PlayerView: View {
                 Image(systemName: "shuffle")
                     .foregroundStyle(player.isShuffled ? Palette.accentCuivre : Palette.texteIvoire)
             }
+            Spacer()
             Button { player.cycleRepeatMode() } label: {
                 Image(systemName: player.repeatMode.systemImage)
                     .foregroundStyle(player.repeatMode.isActive ? Palette.accentCuivre : Palette.texteIvoire)
             }
+            Spacer()
             Button { showLyrics.toggle() } label: {
                 Image(systemName: "quote.bubble")
                     .foregroundStyle(showLyrics ? Palette.accentCuivre : Palette.texteIvoire)
             }
+            Spacer()
             Button { showQueue = true } label: {
                 Image(systemName: "list.bullet").foregroundStyle(Palette.texteIvoire)
             }
             #if os(iOS)
+            Spacer()
             RoutePickerView()
                 .frame(width: 32, height: 32)
             #endif

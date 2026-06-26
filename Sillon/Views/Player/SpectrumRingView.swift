@@ -7,7 +7,8 @@ enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
     case waveform        // ondulation
     case cascade         // cascade
     case oscilloscope    // oscilloscope
-    case off             // aucun spectre → pochette carrée
+    case off             // aucun spectre → pochette ronde (agrandie)
+    case offSquare       // aucun spectre → pochette carrée (coins arrondis)
 
     var id: String { rawValue }
 
@@ -18,7 +19,8 @@ enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
         case .waveform: "Ondulation"
         case .cascade: "Cascade"
         case .oscilloscope: "Oscilloscope"
-        case .off: "Aucun"
+        case .off: "Aucun (vignette ronde)"
+        case .offSquare: "Aucun (vignette carrée)"
         }
     }
 
@@ -30,6 +32,7 @@ enum SpectrumStyle: String, CaseIterable, Identifiable, Codable, Sendable {
         case .cascade: "square.stack.3d.up.fill"
         case .oscilloscope: "waveform.path.ecg"
         case .off: "circle"
+        case .offSquare: "square"
         }
     }
 }
@@ -51,7 +54,7 @@ struct SpectrumRingView: View {
             case .waveform: drawWaveform(context, size)
             case .cascade: drawCascade(context, size)
             case .oscilloscope: drawOscilloscope(context, size)
-            case .off: break   // pas de spectre (la vue n'est de toute façon pas affichée dans ce cas)
+            case .off, .offSquare: break   // pas de spectre (la vue n'est de toute façon pas affichée)
             }
         }
         .onChange(of: levels) { _, new in
