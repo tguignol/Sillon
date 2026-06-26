@@ -174,7 +174,7 @@ final class PlayerController {
         engine.attach(fadeB)
         engine.attach(sumMixer)
         engine.attach(eq)
-        EQBands.apply(gainsDB: settings.gainsDB, isEnabled: settings.isEnabled, to: eq)
+        EQBands.apply(settings, to: eq)
         engine.mainMixerNode.outputVolume = volume
         setupRemoteCommands()
     }
@@ -534,7 +534,7 @@ final class PlayerController {
         if eq.bands.count != settings.bandCount {
             rebuildEQ(bandCount: settings.bandCount)
         }
-        EQBands.apply(gainsDB: settings.gainsDB, isEnabled: settings.isEnabled, to: eq)
+        EQBands.apply(settings, to: eq)
     }
 
     private func rebuildEQ(bandCount: Int) {

@@ -26,18 +26,28 @@ enum EQBands {
         return "\(Int(frequency.rounded()))"
     }
 
-    /// Applique les réglages à l'unité EQ : type paramétrique, gains bornés, bypass global.
-    static func apply(gainsDB: [Double], isEnabled: Bool, to eq: AVAudioUnitEQ) {
-        let frequencies = frequencies(count: eq.bands.count)
+    /// Applique les réglages à l'unité EQ. Les filtres AVAudioUnitEQ sont toujours `.parametric` ;
+    /// le mode « Normal » fige fréquences (log) et largeur (1 octave) et n'expose que le gain, tandis
+    /// que le mode « Paramétrique » applique les fréquences/largeurs réglées par l'utilisateur.
+    static func apply(_ settings: EQSettings, to eq: AVAudioUnitEQ) {
+        let count = eq.bands.count
+        let isParam = settings.mode == .parametric
+        let freqs: [Float] = (isParam && settings.frequencies.count == count)
+            ? settings.frequencies.map { Float($0) }
+            : frequencies(count: count)
+        let bws: [Float] = (isParam && settings.bandwidths.count == count)
+            ? settings.bandwidths.map { Float($0) }
+            : Array(repeating: 1.0, count: count)
+
         for (index, band) in eq.bands.enumerated() {
             band.filterType = .parametric
-            band.frequency = index < frequencies.count ? frequencies[index] : band.frequency
-            band.bandwidth = 1.0   // octaves
-            let gain = index < gainsDB.count ? Float(gainsDB[index]) : 0
+            if index < freqs.count { band.frequency = max(20, min(20_000, freqs[index])) }
+            band.bandwidth = index < bws.count ? max(0.05, min(5.0, bws[index])) : 1.0
+            let gain = index < settings.gainsDB.count ? Float(settings.gainsDB[index]) : 0
             band.gain = min(maxGainDB, max(minGainDB, gain))
             band.bypass = false
         }
         eq.globalGain = 0
-        eq.bypass = !isEnabled
+        eq.bypass = !settings.isEnabled
     }
 }

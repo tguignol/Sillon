@@ -1,6 +1,15 @@
 import Foundation
 import SwiftData
 
+/// Mode de l'égaliseur. `graphic` (« Normal ») : bandes à fréquences fixes log et largeur fixe, seul
+/// le gain est réglable. `parametric` : fréquence centrale + largeur (octaves) + gain réglables par bande.
+enum EQMode: String, Codable, CaseIterable, Identifiable, Sendable {
+    case graphic
+    case parametric
+    var id: String { rawValue }
+    var label: String { self == .graphic ? "Normal" : "Paramétrique" }
+}
+
 /// État courant de l'égaliseur.
 ///
 /// Décision documentée : le prompt mentionne à la fois "presets EQ utilisateur" (section Stack)
@@ -14,6 +23,18 @@ final class EQSettings {
     var gainsDB: [Double]     // une valeur par bande, -12.0...12.0
     var isEnabled: Bool
     var updatedAt: Date
+
+    /// Mode (« Normal » / « Paramétrique »). Stocké en brut (String) → migration légère.
+    var modeRaw: String = EQMode.graphic.rawValue
+    /// Paramétrique : fréquence centrale (Hz) par bande. Vide ou taille ≠ bandCount ⇒ défauts log.
+    var frequencies: [Double] = []
+    /// Paramétrique : largeur de bande (octaves) par bande. Vide ou taille ≠ bandCount ⇒ 1.0.
+    var bandwidths: [Double] = []
+
+    var mode: EQMode {
+        get { EQMode(rawValue: modeRaw) ?? .graphic }
+        set { modeRaw = newValue.rawValue }
+    }
 
     /// Identifiant fixe : un seul enregistrement `EQSettings` doit exister dans la base.
     /// La création/récupération de cet unique enregistrement est gérée par un repository
