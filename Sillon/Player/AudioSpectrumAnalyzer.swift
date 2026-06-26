@@ -114,8 +114,11 @@ final class AudioSpectrumAnalyzer {
             for i in lower..<hi { sum += amplitudes[i] }
             let avg = hi > lower ? sum / Float(hi - lower) : 0
 
+            // Les magnitudes FFT (vDSP, non normalisées) sont grandes → sans recalage la fenêtre dB
+            // saturait (tout collé à 1 = anneau plein figé). On recale sur une plage plus haute pour
+            // retrouver une vraie dynamique 0…1 : les bandes varient et « bougent » au lieu de saturer.
             let db = 20 * log10(avg + 1e-7)
-            bands[b] = max(0, min(1, (db + 52) / 52))   // ~ -52 dB … 0 dB -> 0 … 1
+            bands[b] = max(0, min(1, (db + 20) / 50))   // ~ -20 dB … +30 dB -> 0 … 1
         }
         return bands
     }

@@ -97,7 +97,7 @@ struct PlayerView: View {
             SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
             CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
                 .clipShape(Circle())
-                .padding(38)
+                .padding(28)   // pochette plus grande → l'anneau de spectre la serre de plus près
         }
         .frame(maxWidth: 344)
         .aspectRatio(1, contentMode: .fit)
