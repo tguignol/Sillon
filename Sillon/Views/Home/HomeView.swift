@@ -100,9 +100,9 @@ struct HomeView: View {
                 }
 
                 if !rediscover.isEmpty {
-                    // Tirer le carrousel vers la droite au-delà du dernier album re-mélange la sélection
-                    // (comme au démarrage). Réservé à cette section ; les autres restent figées.
-                    albumCarousel("Redécouvrir des albums", rediscover, onTrailingOverscroll: regenerateRediscover)
+                    // Tirer le carrousel au-delà de l'un de ses bords (gauche ou droite) re-mélange la
+                    // sélection (comme au démarrage). Réservé à cette section ; les autres restent figées.
+                    albumCarousel("Redécouvrir des albums", rediscover, onEdgeOverscroll: regenerateRediscover)
                 }
 
                 if !activePlayedAlbums.isEmpty {
@@ -171,13 +171,13 @@ struct HomeView: View {
         .padding(.horizontal, Spacing.l)
     }
 
-    /// Carrousel d'albums standard (carte + navigation vers le détail). `onTrailingOverscroll`, s'il
-    /// est fourni, est appelé quand on tire la rangée au-delà de son dernier élément (cf. « Redécouvrir »).
+    /// Carrousel d'albums standard (carte + navigation vers le détail). `onEdgeOverscroll`, s'il est
+    /// fourni, est appelé quand on tire la rangée au-delà de l'un de ses bords (cf. « Redécouvrir »).
     @ViewBuilder
     private func albumCarousel(_ title: String,
                                _ entries: [(album: Album, sourceCount: Int)],
-                               onTrailingOverscroll: (() -> Void)? = nil) -> some View {
-        HomeSection(title: title, onTrailingOverscroll: onTrailingOverscroll) {
+                               onEdgeOverscroll: (() -> Void)? = nil) -> some View {
+        HomeSection(title: title, onEdgeOverscroll: onEdgeOverscroll) {
             ForEach(entries, id: \.album.id) { entry in
                 NavigationLink(value: entry.album) {
                     AlbumCard(album: entry.album, size: albumCardSize, sourceCount: entry.sourceCount)
@@ -203,7 +203,7 @@ struct HomeView: View {
     }
 
     /// Re-tire une sélection aléatoire pour « Redécouvrir » (même logique que la génération initiale,
-    /// sans le garde-fou). Déclenché par un overscroll vers la droite en fin de carrousel.
+    /// sans le garde-fou). Déclenché par un overscroll à l'un des bords du carrousel (gauche ou droite).
     private func regenerateRediscover() {
         guard !recentAlbums.isEmpty else { return }
         let deduped = recentAlbums.dedupedAlbums(merge: mergeDuplicates).map(\.album)
@@ -219,13 +219,13 @@ struct HomeView: View {
 /// Bandeau titre + rangée horizontale défilante. Le contenu fixe sa propre taille de carte,
 /// ce qui permet les formats inégaux entre sections.
 ///
-/// `onTrailingOverscroll` (optionnel) est appelé quand l'utilisateur tire la rangée vers la droite
-/// au-delà de son dernier élément (geste « pull-to-refresh » horizontal). Armé/désarmé par seuil pour
-/// ne se déclencher qu'une fois par geste, et seulement attaché si l'action est fournie (zéro surcoût
+/// `onEdgeOverscroll` (optionnel) est appelé quand l'utilisateur tire la rangée au-delà de l'un de ses
+/// bords (gauche OU droite) — geste « pull-to-refresh » horizontal. Armé/désarmé par seuil pour ne se
+/// déclencher qu'une fois par geste, et seulement attaché si l'action est fournie (zéro surcoût
 /// d'observation du défilement pour les autres carrousels).
 private struct HomeSection<Content: View>: View {
     let title: String
-    var onTrailingOverscroll: (() -> Void)? = nil
+    var onEdgeOverscroll: (() -> Void)? = nil
     @ViewBuilder let content: Content
 
     /// Réarmé quand on revient près du bord ; évite de re-déclencher en continu tant qu'on tire.
@@ -250,14 +250,16 @@ private struct HomeSection<Content: View>: View {
             .padding(.horizontal, Spacing.l)
         }
 
-        if let onTrailingOverscroll {
+        if let onEdgeOverscroll {
             scroll.onScrollGeometryChange(for: CGFloat.self) { geo in
-                // Distance tirée AU-DELÀ du bord droit (> 0 en overscroll ; ≤ 0 sinon).
-                geo.contentOffset.x - max(0, geo.contentSize.width - geo.containerSize.width)
+                // Distance tirée AU-DELÀ d'un bord, gauche OU droite (> 0 en overscroll ; ≤ 0 sinon).
+                let leading = -geo.contentOffset.x
+                let trailing = geo.contentOffset.x - max(0, geo.contentSize.width - geo.containerSize.width)
+                return max(leading, trailing)
             } action: { _, overscroll in
                 if overscroll > 70, overscrollArmed {
                     overscrollArmed = false
-                    onTrailingOverscroll()
+                    onEdgeOverscroll()
                 } else if overscroll < 20 {
                     overscrollArmed = true
                 }
