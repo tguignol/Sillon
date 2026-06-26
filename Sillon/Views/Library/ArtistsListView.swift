@@ -6,24 +6,33 @@ struct ArtistsListView: View {
     @Query(sort: \Artist.sortName) private var artists: [Artist]
     @AppStorage("mergeServerDuplicates") private var mergeDuplicates = true
 
+    /// Cf. `AlbumsGridView` : quand `false`, on s'appuie sur le `navigationDestination(for: Artist.self)`
+    /// d'un conteneur parent (l'Accueil) au lieu de le déclarer ici.
+    var providesNavigationDestination = true
+
     private var visibleArtists: [Artist] {
         artists.onActiveServers().dedupedArtists(merge: mergeDuplicates)
     }
 
     var body: some View {
-        Group {
-            if visibleArtists.isEmpty {
-                LibraryEmptyState(title: "Aucun artiste", systemImage: "music.mic")
-            } else {
-                List(visibleArtists) { artist in
-                    NavigationLink(value: artist) {
-                        ArtistRow(artist: artist)
-                    }
-                }
-                .listStyle(.plain)
-            }
+        if providesNavigationDestination {
+            list.navigationDestination(for: Artist.self) { ArtistDetailView(artist: $0) }
+        } else {
+            list
         }
-        .navigationDestination(for: Artist.self) { ArtistDetailView(artist: $0) }
+    }
+
+    @ViewBuilder private var list: some View {
+        if visibleArtists.isEmpty {
+            LibraryEmptyState(title: "Aucun artiste", systemImage: "music.mic")
+        } else {
+            List(visibleArtists) { artist in
+                NavigationLink(value: artist) {
+                    ArtistRow(artist: artist)
+                }
+            }
+            .listStyle(.plain)
+        }
     }
 }
 
@@ -64,6 +73,9 @@ private struct ArtistRow: View {
 /// Détail d'un artiste : ses albums en grille.
 struct ArtistDetailView: View {
     let artist: Artist
+    /// Cf. `AlbumsGridView` : quand `false`, on s'appuie sur le `navigationDestination(for: Album.self)`
+    /// d'un parent (l'Accueil) au lieu de le déclarer ici.
+    var providesNavigationDestination = true
     @Environment(\.modelContext) private var context
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
@@ -73,6 +85,14 @@ struct ArtistDetailView: View {
     }
 
     var body: some View {
+        if providesNavigationDestination {
+            grid.navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
+        } else {
+            grid
+        }
+    }
+
+    @ViewBuilder private var grid: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: Spacing.xl) {
                 ForEach(albums) { album in
@@ -85,7 +105,6 @@ struct ArtistDetailView: View {
             .padding(Spacing.l)
         }
         .navigationTitle(artist.name)
-        .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 FavoriteButton(isFavorite: artist.isFavorite, prominent: true) {

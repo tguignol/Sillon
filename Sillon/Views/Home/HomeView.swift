@@ -50,9 +50,35 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Accueil")
+            // Toute la navigation de l'Accueil est value-based : les destinations sont déclarées UNE
+            // seule fois ici, à la racine, et desservent aussi bien les carrousels que les vues
+            // poussées par les accès rapides (qui s'appuient dessus via `providesNavigationDestination:
+            // false`). Mélanger des `NavigationLink` à destination directe casserait cette résolution.
             .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
+            .navigationDestination(for: Artist.self) { ArtistDetailView(artist: $0, providesNavigationDestination: false) }
             .navigationDestination(for: Playlist.self) { PlaylistDetailView(playlist: $0) }
+            .navigationDestination(for: QuickDestination.self) { destination in
+                switch destination {
+                case .albums:
+                    AlbumsGridView(providesNavigationDestination: false)
+                        .navigationTitle("Albums")
+                        #if os(iOS)
+                        .navigationBarTitleDisplayMode(.inline)
+                        #endif
+                case .artistes:
+                    ArtistsListView(providesNavigationDestination: false)
+                        .navigationTitle("Artistes")
+                        #if os(iOS)
+                        .navigationBarTitleDisplayMode(.inline)
+                        #endif
+                }
+            }
         }
+    }
+
+    /// Cibles des accès rapides en haut de l'Accueil (poussées sur la même pile, en value-based).
+    private enum QuickDestination: Hashable {
+        case albums, artistes
     }
 
     private var content: some View {
@@ -63,6 +89,8 @@ struct HomeView: View {
         let random = randomAlbums.onActiveServers().map { (album: $0, sourceCount: 1) }
         return ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
+                quickActions
+
                 albumCarousel("Albums récents", entries(recentAlbums, limit: 30))
 
                 if !activeFavoriteAlbums.isEmpty {
@@ -110,6 +138,31 @@ struct HomeView: View {
             .padding(.vertical, Spacing.l)
         }
         .onAppear(perform: generateDiscoveryIfNeeded)
+    }
+
+    /// Accès rapides en haut de l'Accueil : Albums, Artistes, Mixer les favoris.
+    /// (La Recherche a son propre onglet dédié dans la barre du bas — toujours globale.)
+    private var quickActions: some View {
+        HStack(spacing: Spacing.m) {
+            NavigationLink(value: QuickDestination.albums) {
+                QuickAction(title: "Albums", systemImage: "square.stack.fill")
+            }
+
+            NavigationLink(value: QuickDestination.artistes) {
+                QuickAction(title: "Artistes", systemImage: "music.mic")
+            }
+
+            Button {
+                let tracks = activeFavoriteTracks.dedupedTracks(merge: mergeDuplicates)
+                guard !tracks.isEmpty else { return }
+                player?.play(queue: tracks.shuffled(), startAt: 0)
+            } label: {
+                QuickAction(title: "Mixer les favoris", systemImage: "shuffle")
+            }
+            .disabled(activeFavoriteTracks.isEmpty)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, Spacing.l)
     }
 
     /// Carrousel d'albums standard (carte + navigation vers le détail).
@@ -161,6 +214,29 @@ private struct HomeSection<Content: View>: View {
                 .padding(.horizontal, Spacing.l)
             }
         }
+    }
+}
+
+/// Carte d'accès rapide (icône + libellé) affichée en haut de l'Accueil.
+private struct QuickAction: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        VStack(spacing: Spacing.s) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(Palette.signalTeal)
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(Palette.texteIvoire)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 64)
+        .background(Palette.surfaceElevee, in: RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous))
     }
 }
 

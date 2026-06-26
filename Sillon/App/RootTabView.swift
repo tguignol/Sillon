@@ -29,6 +29,11 @@ struct RootTabView: View {
                 FavoritesView()
             }
 
+            // Recherche globale (toute la bibliothèque, tous serveurs actifs) — intercalée avant Réglages.
+            Tab("Recherche", systemImage: "magnifyingglass") {
+                SearchView()
+            }
+
             Tab("Réglages", systemImage: "gearshape.fill") {
                 SettingsRootView()
             }

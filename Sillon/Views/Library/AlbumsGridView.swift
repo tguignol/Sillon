@@ -35,8 +35,14 @@ enum AlbumSortOrder: String, CaseIterable, Identifiable {
 struct AlbumsGridView: View {
     @Query private var albums: [Album]
 
-    init(sort: AlbumSortOrder = .titre) {
+    /// Quand `false`, la vue ne déclare PAS son propre `navigationDestination(for: Album.self)` :
+    /// elle s'appuie sur celui d'un conteneur parent (l'Accueil, qui le déclare déjà à sa racine pour
+    /// ses carrousels). Évite un doublon de destination du même type dans une même pile.
+    var providesNavigationDestination = true
+
+    init(sort: AlbumSortOrder = .titre, providesNavigationDestination: Bool = true) {
         _albums = Query(sort: sort.descriptors)
+        self.providesNavigationDestination = providesNavigationDestination
     }
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
@@ -47,24 +53,29 @@ struct AlbumsGridView: View {
     }
 
     var body: some View {
-        Group {
-            if visibleAlbums.isEmpty {
-                LibraryEmptyState(title: "Aucun album", systemImage: "square.stack")
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                        ForEach(visibleAlbums, id: \.album.id) { entry in
-                            NavigationLink(value: entry.album) {
-                                AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
-                            }
-                            .buttonStyle(.plain)
+        if providesNavigationDestination {
+            grid.navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
+        } else {
+            grid
+        }
+    }
+
+    @ViewBuilder private var grid: some View {
+        if visibleAlbums.isEmpty {
+            LibraryEmptyState(title: "Aucun album", systemImage: "square.stack")
+        } else {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: Spacing.xl) {
+                    ForEach(visibleAlbums, id: \.album.id) { entry in
+                        NavigationLink(value: entry.album) {
+                            AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(Spacing.l)
                 }
+                .padding(Spacing.l)
             }
         }
-        .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
     }
 }
 
