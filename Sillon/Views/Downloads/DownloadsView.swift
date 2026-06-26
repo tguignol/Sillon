@@ -5,8 +5,13 @@ import SwiftData
 /// (annuler, supprimer, réessayer). Accessible depuis Réglages ▸ Téléchargements.
 struct DownloadsView: View {
     @Query(sort: \DownloadTask.queuedAt, order: .reverse) private var tasks: [DownloadTask]
+    // Les téléchargements peuvent provenir de n'importe quel serveur configuré (même inactif) ; on
+    // affiche donc le logo de source dès qu'il y a ≥2 serveurs CONFIGURÉS (et non « actifs »).
+    @Query private var servers: [ServerAccount]
     @Environment(\.modelContext) private var context
     @Environment(\.downloadManager) private var downloadManager
+
+    private var showsSource: Bool { servers.count > 1 }
 
     var body: some View {
         Group {
@@ -19,7 +24,7 @@ struct DownloadsView: View {
             } else {
                 List {
                     ForEach(tasks) { task in
-                        DownloadRow(task: task, track: track(for: task.trackID))
+                        DownloadRow(task: task, track: track(for: task.trackID), showsSource: showsSource)
                     }
                 }
                 .listStyle(.plain)
@@ -39,6 +44,7 @@ struct DownloadsView: View {
 private struct DownloadRow: View {
     let task: DownloadTask
     let track: Track?
+    var showsSource: Bool = false
     @Environment(\.downloadManager) private var downloadManager
 
     var body: some View {
@@ -67,9 +73,27 @@ private struct DownloadRow: View {
 
             Spacer()
 
+            // Logo du serveur d'origine (Jellyfin/Navidrome ; symbole pour le local).
+            if showsSource, let type = track?.server?.type {
+                sourceMark(type)
+                    .frame(width: 18, height: 18)
+                    .accessibilityLabel("Source : \(type.displayName)")
+            }
+
             trailingAction
         }
         .padding(.vertical, 2)
+    }
+
+    @ViewBuilder private func sourceMark(_ type: ServerType) -> some View {
+        switch type {
+        case .jellyfin: JellyfinMark()
+        case .subsonic:  NavidromeMark()
+        case .local:
+            Image(systemName: type.systemImageName)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var subtitle: String {
