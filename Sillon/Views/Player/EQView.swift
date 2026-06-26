@@ -10,6 +10,7 @@ struct EQView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var settings: EQSettings?
     @State private var selectedBand: Int?
+    @State private var showPresets = false
     @Query(sort: \EQPreset.slot) private var allPresets: [EQPreset]
 
     var body: some View {
@@ -64,18 +65,25 @@ struct EQView: View {
             ), in: 6...12)
             .padding(.horizontal, Spacing.l)
 
-            Group {
-                switch settings.mode {
-                case .normal: normalEditor(settings)
-                case .parametric: parametricEditor(settings)
-                case .graphic: graphicEditor(settings)
+            ZStack {
+                Group {
+                    switch settings.mode {
+                    case .normal: normalEditor(settings)
+                    case .parametric: parametricEditor(settings)
+                    case .graphic: graphicEditor(settings)
+                    }
+                }
+                .opacity(settings.isEnabled ? 1 : 0.4)
+                .disabled(!settings.isEnabled)
+
+                // Les presets se superposent à l'éditeur quand on les ouvre (le bouton reste visible dessous).
+                if showPresets {
+                    presetsPanel(settings).transition(.opacity)
                 }
             }
             .frame(maxHeight: .infinity)
-            .opacity(settings.isEnabled ? 1 : 0.4)
-            .disabled(!settings.isEnabled)
 
-            presetsSection(settings)
+            presetsToggleButton
 
             Button("Réinitialiser (plat)") { resetFlat(settings) }
                 .buttonStyle(.bordered)
@@ -87,31 +95,35 @@ struct EQView: View {
     // MARK: - Mode « Normal » (curseurs verticaux, fréquences fixes)
 
     private func normalEditor(_ settings: EQSettings) -> some View {
-        HStack(alignment: .center, spacing: Spacing.s) {
+        let count = max(1, settings.bandCount)
+        // Espacement large pour peu de bandes, qui se resserre à mesure qu'on en ajoute.
+        let spacing = max(CGFloat(2), CGFloat(30 - count * 2))
+        // Largeur de colonne (barre) élargie pour peu de bandes, plus fine quand on en ajoute.
+        let barWidth = min(CGFloat(46), max(CGFloat(14), 360 / CGFloat(count)))
+        return HStack(alignment: .center, spacing: spacing) {
             ForEach(settings.gainsDB.indices, id: \.self) { index in
-                bandSlider(settings: settings, index: index)
+                bandSlider(settings: settings, index: index, barWidth: barWidth)
+                    .frame(maxWidth: .infinity)
             }
         }
         .frame(height: 240)
+        .padding(.horizontal, Spacing.l)
     }
 
-    private func bandSlider(settings: EQSettings, index: Int) -> some View {
+    private func bandSlider(settings: EQSettings, index: Int, barWidth: CGFloat) -> some View {
         let frequencies = EQBands.frequencies(count: settings.bandCount)
         return VStack(spacing: Spacing.xs) {
             Text(String(format: "%+.0f", settings.gainsDB[index]))
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Palette.signalTeal)
-            Slider(
-                value: Binding(
-                    get: { settings.gainsDB[index] },
-                    set: { settings.gainsDB[index] = $0; commit(settings) }
-                ),
-                in: Double(EQBands.minGainDB)...Double(EQBands.maxGainDB)
+            VerticalGainFader(
+                value: Binding(get: { settings.gainsDB[index] },
+                               set: { settings.gainsDB[index] = $0 }),
+                range: Double(EQBands.minGainDB)...Double(EQBands.maxGainDB),
+                onChange: { commit(settings) }
             )
-            .tint(Palette.accentCuivre)
-            .rotationEffect(.degrees(-90))
-            .frame(width: 180)
-            .frame(width: 30, height: 180)
+            .frame(width: barWidth)
+            .frame(maxHeight: .infinity)
             Text(EQBands.label(for: index < frequencies.count ? frequencies[index] : 0))
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -294,6 +306,31 @@ struct EQView: View {
 
     // MARK: - Presets
 
+    /// Bouton d'ouverture des presets : change de couleur quand actif, reste toujours visible.
+    private var presetsToggleButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { showPresets.toggle() }
+        } label: {
+            Label(showPresets ? "Fermer les presets" : "Presets", systemImage: "rectangle.stack.fill")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.s)
+                .background(showPresets ? Palette.accentCuivre : Palette.surfaceElevee, in: Capsule())
+                .foregroundStyle(showPresets ? Palette.fondNoir : Palette.texteIvoire)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, Spacing.l)
+    }
+
+    /// Panneau presets superposé à l'éditeur (fond opaque pour le couvrir).
+    private func presetsPanel(_ settings: EQSettings) -> some View {
+        ScrollView {
+            presetsSection(settings).padding(.top, Spacing.m)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.fondNoir)
+    }
+
     private func presetsSection(_ settings: EQSettings) -> some View {
         let presets = allPresets.filter { $0.modeRaw == settings.mode.rawValue }
         return VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -347,6 +384,42 @@ struct EQView: View {
         preset.bandwidths = settings.bandwidths
         preset.updatedAt = .now
         try? context.save()
+    }
+}
+
+/// Curseur vertical (« fader ») d'une bande de l'égaliseur Normal : barre large, remplie depuis le
+/// 0 dB jusqu'au niveau courant ; un glissement vertical règle le gain.
+private struct VerticalGainFader: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let onChange: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            let h = geo.size.height
+            let span = range.upperBound - range.lowerBound
+            let frac = span > 0 ? (value - range.lowerBound) / span : 0.5
+            let zeroFrac = span > 0 ? (0 - range.lowerBound) / span : 0.5
+            let thumbY = (1 - frac) * h
+            let zeroY = (1 - zeroFrac) * h
+            ZStack(alignment: .topLeading) {
+                Capsule().fill(Palette.surfaceElevee)
+                Capsule().fill(Palette.accentCuivre.opacity(0.9))
+                    .frame(height: max(2, abs(thumbY - zeroY)))
+                    .offset(y: min(thumbY, zeroY))
+                Capsule().fill(Palette.texteIvoire)
+                    .frame(height: 6)
+                    .offset(y: thumbY - 3)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0).onChanged { v in
+                    let f = 1 - max(0, min(1, v.location.y / max(1, h)))
+                    value = range.lowerBound + f * span
+                    onChange()
+                }
+            )
+        }
     }
 }
 
