@@ -135,6 +135,16 @@ struct AlbumDetailView: View {
                     .font(Typo.technique)
                     .foregroundStyle(Palette.signalTeal)
                     .padding(.top, Spacing.xs)
+                // Encodage d'origine (codec), sous les métadonnées : badge « FLAC », « ALAC », etc.
+                if let encoding = encodingSummary {
+                    Label(encoding, systemImage: "waveform")
+                        .font(Typo.technique)
+                        .foregroundStyle(Palette.fondNoir)
+                        .padding(.horizontal, Spacing.s)
+                        .padding(.vertical, 2)
+                        .background(Palette.signalTeal, in: Capsule())
+                        .padding(.top, 2)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -148,6 +158,18 @@ struct AlbumDetailView: View {
         let total = album.tracks.reduce(0) { $0 + $1.durationSeconds }
         if total > 0 { parts.append(total.asTrackDuration) }
         return parts.joined(separator: " · ")
+    }
+
+    /// Encodage(s) d'origine de l'album, dérivé du codec de chaque piste (`Track.format`).
+    /// Renvoie « FLAC » pour un album homogène, « ALAC · FLAC · MP3 » s'il est hétérogène,
+    /// `nil` si aucun format n'est connu.
+    private var encodingSummary: String? {
+        let distinct = Set(album.tracks.compactMap { track -> String? in
+            guard let f = track.format?.trimmingCharacters(in: .whitespaces), !f.isEmpty else { return nil }
+            return f.audioCodecLabel
+        })
+        guard !distinct.isEmpty else { return nil }
+        return distinct.sorted().joined(separator: " · ")
     }
 }
 
