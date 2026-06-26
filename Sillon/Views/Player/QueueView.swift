@@ -39,13 +39,21 @@ struct QueueView: View {
 
     private func row(index: Int, track: Track, isCurrent: Bool) -> some View {
         HStack(spacing: Spacing.m) {
-            if isCurrent {
-                Image(systemName: "speaker.wave.2.fill")
-                    .font(.caption).foregroundStyle(Palette.accentCuivre).frame(width: 20)
-            } else {
-                Text("\(index + 1)")
-                    .font(Typo.technique).foregroundStyle(.secondary).frame(width: 20)
-            }
+            CoverArtView(path: track.album?.coverArtRemotePath,
+                         server: track.server,
+                         seed: track.album?.title ?? track.title)
+                .frame(width: 44, height: 44)
+                .overlay {
+                    // Marqueur « en lecture » superposé à la pochette du morceau courant.
+                    if isCurrent {
+                        ZStack {
+                            Color.black.opacity(0.45)
+                            Image(systemName: "speaker.wave.2.fill")
+                                .font(.caption).foregroundStyle(.white)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous))
+                    }
+                }
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.title)
                     .font(Typo.corps).lineLimit(1)

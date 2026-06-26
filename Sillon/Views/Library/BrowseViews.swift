@@ -79,7 +79,7 @@ struct GenreTracksView: View {
         let visibleTracks = tracks.onActiveServers().dedupedTracks(merge: mergeDuplicates && hasMultipleServers)
         return List {
             ForEach(Array(visibleTracks.enumerated()), id: \.element.id) { index, track in
-                TrackRowView(track: track)
+                TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
                     .contentShape(Rectangle())
                     .onTapGesture { player?.play(queue: visibleTracks, startAt: index) }
                     .trackContextMenu(track: track, context: context)

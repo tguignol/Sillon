@@ -74,7 +74,7 @@ struct FavoritesView: View {
                     sectionTitle("Titres")
                     VStack(spacing: 0) {
                         ForEach(Array(visibleTracks.enumerated()), id: \.element.id) { index, track in
-                            TrackRowView(track: track, showsTrackNumber: false)
+                            TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
                                 .padding(.horizontal, Spacing.l)
                                 .padding(.vertical, Spacing.xs)
                                 .contentShape(Rectangle())

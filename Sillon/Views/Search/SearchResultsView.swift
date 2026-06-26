@@ -46,7 +46,7 @@ struct SearchResultsView: View {
                     if !tracks.isEmpty {
                         Section("Titres") {
                             ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
-                                TrackRowView(track: track, showsTrackNumber: false)
+                                TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
                                     .contentShape(Rectangle())
                                     .onTapGesture { player?.play(queue: tracks, startAt: index) }
                                     .trackContextMenu(track: track, context: context)

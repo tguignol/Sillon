@@ -49,9 +49,20 @@ private struct DownloadRow: View {
 
     var body: some View {
         HStack(spacing: Spacing.m) {
-            Image(systemName: task.status.systemImageName)
-                .foregroundStyle(tint)
-                .frame(width: 24)
+            CoverArtView(path: track?.album?.coverArtRemotePath,
+                         server: track?.server,
+                         seed: track?.album?.title ?? track?.title ?? "")
+                .frame(width: 44, height: 44)
+                .overlay(alignment: .bottomTrailing) {
+                    // Badge d'état du téléchargement (en attente / en cours / terminé / échec) en coin.
+                    Image(systemName: task.status.systemImageName)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(3)
+                        .background(tint, in: Circle())
+                        .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1))
+                        .padding(2)
+                }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(track?.title ?? "Morceau")
