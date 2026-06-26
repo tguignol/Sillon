@@ -11,6 +11,7 @@ struct PlayerView: View {
     @State private var showEQ = false
     @State private var showQueue = false
     @State private var showLyrics = false
+    @State private var showTechDetails = false
     @State private var scrubTime: Double?
     @AppStorage("spectrumStyle") private var spectrumStyleRaw = SpectrumStyle.circularBars.rawValue
 
@@ -32,7 +33,7 @@ struct PlayerView: View {
                 } else {
                     artwork(track: track, player: player)
                 }
-                titles(track: track, format: player.currentFormatDescription, output: player.audioOutput)
+                titles(track: track)
                 progressSection(player: player)
                 transport(player: player)
                 volumeSection(player: player)
@@ -44,6 +45,9 @@ struct PlayerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Palette.fondNoir)
             .animation(.easeInOut(duration: 0.25), value: showLyrics)
+            .animation(.easeInOut(duration: 0.2), value: showTechDetails)
+            // Le détail technique se referme quand on change de morceau (il concerne le titre courant).
+            .onChange(of: track.id) { showTechDetails = false }
             .sheet(isPresented: $showEQ) { EQView() }
             .sheet(isPresented: $showQueue) { QueueView() }
         } else {
@@ -97,13 +101,54 @@ struct PlayerView: View {
             SpectrumRingView(levels: player.spectrum, waveform: player.waveform, style: spectrumStyle)
             CoverArtView(path: track.album?.coverArtRemotePath, server: track.server, seed: track.album?.title ?? track.title, preferredSize: 600)
                 .clipShape(Circle())
+                // Autocollant « qualité » (codec · fréquence) en bas de la pochette, façon hi-res sur
+                // une pochette vinyle. Au toucher, il s'ouvre sur le détail complet (profondeur, débit, sortie).
+                .overlay(alignment: .bottom) {
+                    qualityOverlay(player: player)
+                        .padding(.bottom, 8)
+                }
                 .padding(38)
         }
         .frame(maxWidth: 344)
         .aspectRatio(1, contentMode: .fit)
+        .contentShape(Rectangle())
+        .onTapGesture { showTechDetails.toggle() }
     }
 
-    private func titles(track: Track, format: String?, output: AudioOutput?) -> some View {
+    @ViewBuilder
+    private func qualityOverlay(player: PlayerController) -> some View {
+        if showTechDetails {
+            VStack(spacing: 2) {
+                if let format = player.currentFormatDescription, !format.isEmpty {
+                    Text(format)
+                        .font(Typo.technique)
+                        .foregroundStyle(Palette.signalTeal)
+                }
+                if let output = player.audioOutput {
+                    Label(output.summary, systemImage: output.transport.systemImage)
+                        .font(Typo.technique)
+                        .foregroundStyle(Palette.texteIvoire.opacity(0.85))
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.s)
+            .background(Palette.fondNoir.opacity(0.72), in: RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+            .transition(.opacity)
+        } else if let badge = player.currentQualityBadge, !badge.isEmpty {
+            Text(badge)
+                .font(Typo.technique)
+                .foregroundStyle(Palette.signalTeal)
+                .padding(.horizontal, Spacing.s)
+                .padding(.vertical, 4)
+                .background(Palette.fondNoir.opacity(0.6), in: Capsule())
+                .overlay(Capsule().strokeBorder(Palette.signalTeal.opacity(0.45), lineWidth: 0.5))
+                .transition(.opacity)
+        }
+    }
+
+    private func titles(track: Track) -> some View {
         VStack(spacing: Spacing.xs) {
             Text(track.title)
                 .font(Typo.display)
@@ -119,19 +164,6 @@ struct PlayerView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(1)
-            }
-            // Format réellement lu (codec · fréquence · profondeur · débit), sinon le badge du titre.
-            let badge = (format?.isEmpty == false) ? format! : track.technicalBadge
-            if !badge.isEmpty {
-                Text(badge)
-                    .font(Typo.technique)
-                    .foregroundStyle(Palette.signalTeal)
-            }
-            // Sortie audio : transport + appareil (+ codec Bluetooth sur Android — non exposé par iOS).
-            if let output {
-                Label(output.summary, systemImage: output.transport.systemImage)
-                    .font(Typo.technique)
-                    .foregroundStyle(.secondary)
             }
         }
     }
