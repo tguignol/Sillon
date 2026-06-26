@@ -20,6 +20,8 @@ struct HomeView: View {
     /// Sélections aléatoires figées une fois la bibliothèque chargée (cf. `generateDiscoveryIfNeeded`).
     @State private var rediscoverAlbums: [Album] = []
     @State private var randomAlbums: [Album] = []
+    /// Incrémenté à chaque re-mélange manuel de « Redécouvrir » (déclenche le retour haptique).
+    @State private var rediscoverShuffleToken = 0
 
     private let albumCardSize: CGFloat = 160
 
@@ -98,7 +100,9 @@ struct HomeView: View {
                 }
 
                 if !rediscover.isEmpty {
-                    albumCarousel("Redécouvrir des albums", rediscover)
+                    // Tirer le carrousel vers la droite au-delà du dernier album re-mélange la sélection
+                    // (comme au démarrage). Réservé à cette section ; les autres restent figées.
+                    albumCarousel("Redécouvrir des albums", rediscover, onTrailingOverscroll: regenerateRediscover)
                 }
 
                 if !activePlayedAlbums.isEmpty {
@@ -138,6 +142,8 @@ struct HomeView: View {
             .padding(.vertical, Spacing.l)
         }
         .onAppear(perform: generateDiscoveryIfNeeded)
+        // Petit retour haptique à chaque re-mélange de « Redécouvrir » (no-op sur macOS).
+        .sensoryFeedback(.impact(weight: .light), trigger: rediscoverShuffleToken)
     }
 
     /// Accès rapides en haut de l'Accueil : Albums, Artistes, Mixer les favoris.
@@ -165,10 +171,13 @@ struct HomeView: View {
         .padding(.horizontal, Spacing.l)
     }
 
-    /// Carrousel d'albums standard (carte + navigation vers le détail).
+    /// Carrousel d'albums standard (carte + navigation vers le détail). `onTrailingOverscroll`, s'il
+    /// est fourni, est appelé quand on tire la rangée au-delà de son dernier élément (cf. « Redécouvrir »).
     @ViewBuilder
-    private func albumCarousel(_ title: String, _ entries: [(album: Album, sourceCount: Int)]) -> some View {
-        HomeSection(title: title) {
+    private func albumCarousel(_ title: String,
+                               _ entries: [(album: Album, sourceCount: Int)],
+                               onTrailingOverscroll: (() -> Void)? = nil) -> some View {
+        HomeSection(title: title, onTrailingOverscroll: onTrailingOverscroll) {
             ForEach(entries, id: \.album.id) { entry in
                 NavigationLink(value: entry.album) {
                     AlbumCard(album: entry.album, size: albumCardSize, sourceCount: entry.sourceCount)
@@ -192,13 +201,35 @@ struct HomeView: View {
         let pool = neverPlayed.count >= 15 ? neverPlayed : deduped
         rediscoverAlbums = Array(pool.shuffled().prefix(15))
     }
+
+    /// Re-tire une sélection aléatoire pour « Redécouvrir » (même logique que la génération initiale,
+    /// sans le garde-fou). Déclenché par un overscroll vers la droite en fin de carrousel.
+    private func regenerateRediscover() {
+        guard !recentAlbums.isEmpty else { return }
+        let deduped = recentAlbums.dedupedAlbums(merge: mergeDuplicates).map(\.album)
+        let neverPlayed = deduped.filter { $0.lastPlayedDate == nil }
+        let pool = neverPlayed.count >= 15 ? neverPlayed : deduped
+        withAnimation(.easeInOut(duration: 0.3)) {
+            rediscoverAlbums = Array(pool.shuffled().prefix(15))
+        }
+        rediscoverShuffleToken += 1
+    }
 }
 
 /// Bandeau titre + rangée horizontale défilante. Le contenu fixe sa propre taille de carte,
 /// ce qui permet les formats inégaux entre sections.
+///
+/// `onTrailingOverscroll` (optionnel) est appelé quand l'utilisateur tire la rangée vers la droite
+/// au-delà de son dernier élément (geste « pull-to-refresh » horizontal). Armé/désarmé par seuil pour
+/// ne se déclencher qu'une fois par geste, et seulement attaché si l'action est fournie (zéro surcoût
+/// d'observation du défilement pour les autres carrousels).
 private struct HomeSection<Content: View>: View {
     let title: String
+    var onTrailingOverscroll: (() -> Void)? = nil
     @ViewBuilder let content: Content
+
+    /// Réarmé quand on revient près du bord ; évite de re-déclencher en continu tant qu'on tire.
+    @State private var overscrollArmed = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
@@ -207,12 +238,32 @@ private struct HomeSection<Content: View>: View {
                 .foregroundStyle(Palette.texteIvoire)
                 .padding(.horizontal, Spacing.l)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: Spacing.l) {
-                    content
-                }
-                .padding(.horizontal, Spacing.l)
+            row
+        }
+    }
+
+    @ViewBuilder private var row: some View {
+        let scroll = ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: Spacing.l) {
+                content
             }
+            .padding(.horizontal, Spacing.l)
+        }
+
+        if let onTrailingOverscroll {
+            scroll.onScrollGeometryChange(for: CGFloat.self) { geo in
+                // Distance tirée AU-DELÀ du bord droit (> 0 en overscroll ; ≤ 0 sinon).
+                geo.contentOffset.x - max(0, geo.contentSize.width - geo.containerSize.width)
+            } action: { _, overscroll in
+                if overscroll > 70, overscrollArmed {
+                    overscrollArmed = false
+                    onTrailingOverscroll()
+                } else if overscroll < 20 {
+                    overscrollArmed = true
+                }
+            }
+        } else {
+            scroll
         }
     }
 }
