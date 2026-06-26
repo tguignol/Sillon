@@ -21,7 +21,6 @@ struct CoverArtView: View {
     @Environment(\.artworkLoader) private var loader
     @Environment(\.hasMultipleServers) private var hasMultipleServers
     @State private var resolvedURL: URL?
-    @State private var didResolve = false
 
     var body: some View {
         ZStack {
@@ -45,9 +44,11 @@ struct CoverArtView: View {
                 }
             }
         }
+        // On RE-résout dès que (serveur, chemin) change : indispensable car la relation `server`
+        // peut être encore nil au tout premier rendu (relation SwiftData non encore chargée, vue
+        // racine d'onglet créée tôt). Un ancien verrou « résoudre une seule fois » figeait alors
+        // le placeholder à vie. `.task(id:)` ne relance le travail que quand `taskID` change.
         .task(id: taskID) {
-            guard !didResolve else { return }
-            didResolve = true
             // Cache-first : fichier local si déjà synchronisé (instantané), sinon télécharge+cache.
             resolvedURL = await loader.localCoverURL(path: path, server: server)
         }
