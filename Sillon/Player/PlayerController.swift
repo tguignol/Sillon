@@ -39,6 +39,14 @@ final class PlayerController {
     /// Description technique du flux réellement lu (codec · fréquence · profondeur · débit).
     private(set) var currentFormatDescription: String?
 
+    /// Sortie audio courante (transport Bluetooth/AirPlay/filaire/HP + appareil + fréquence). `nil`
+    /// tant qu'aucune session audio n'est active (et sur macOS). Le codec Bluetooth A2DP n'étant pas
+    /// exposé par iOS, seul le transport est renseigné — cf. `AudioOutput`.
+    private(set) var audioOutput: AudioOutput?
+    #if os(iOS)
+    @ObservationIgnored private var routeObserver: NSObjectProtocol?
+    #endif
+
     /// Volume de sortie de l'app (0…1), appliqué au mixer du moteur.
     var volume: Float = 1.0 {
         didSet { engine.mainMixerNode.outputVolume = max(0, min(1, volume)) }
@@ -825,6 +833,34 @@ final class PlayerController {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
+        if routeObserver == nil {
+            routeObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.routeChangeNotification, object: session, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.refreshAudioOutput() }
+            }
+        }
+        refreshAudioOutput()
+        #endif
+    }
+
+    /// Met à jour `audioOutput` depuis la route de sortie courante (iOS). Le codec de transmission
+    /// Bluetooth n'étant pas exposé par iOS, on renseigne le transport ; le codec reste `nil`.
+    func refreshAudioOutput() {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        guard let output = session.currentRoute.outputs.first else { audioOutput = nil; return }
+        let transport: AudioOutput.Transport
+        switch output.portType {
+        case .bluetoothA2DP, .bluetoothLE, .bluetoothHFP: transport = .bluetooth
+        case .airPlay: transport = .airPlay
+        case .headphones, .usbAudio, .lineOut, .carAudio, .headsetMic, .HDMI: transport = .wired
+        case .builtInSpeaker: transport = .speaker
+        case .builtInReceiver: transport = .builtIn
+        default: transport = .other
+        }
+        audioOutput = AudioOutput(transport: transport, deviceName: output.portName,
+                                  sampleRate: session.sampleRate, codec: nil)
         #endif
     }
 

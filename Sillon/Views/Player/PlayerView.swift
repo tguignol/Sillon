@@ -32,7 +32,7 @@ struct PlayerView: View {
                 } else {
                     artwork(track: track, player: player)
                 }
-                titles(track: track, format: player.currentFormatDescription)
+                titles(track: track, format: player.currentFormatDescription, output: player.audioOutput)
                 progressSection(player: player)
                 transport(player: player)
                 volumeSection(player: player)
@@ -103,7 +103,7 @@ struct PlayerView: View {
         .aspectRatio(1, contentMode: .fit)
     }
 
-    private func titles(track: Track, format: String?) -> some View {
+    private func titles(track: Track, format: String?, output: AudioOutput?) -> some View {
         VStack(spacing: Spacing.xs) {
             Text(track.title)
                 .font(Typo.display)
@@ -126,6 +126,12 @@ struct PlayerView: View {
                 Text(badge)
                     .font(Typo.technique)
                     .foregroundStyle(Palette.signalTeal)
+            }
+            // Sortie audio : transport + appareil (+ codec Bluetooth sur Android — non exposé par iOS).
+            if let output {
+                Label(output.summary, systemImage: output.transport.systemImage)
+                    .font(Typo.technique)
+                    .foregroundStyle(.secondary)
             }
         }
     }
