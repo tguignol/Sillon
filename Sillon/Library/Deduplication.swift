@@ -1,4 +1,40 @@
 import Foundation
+import SwiftData
+
+/// Retrouve les copies d'un même album/titre/artiste réparties sur plusieurs serveurs (mêmes clés de
+/// dédup que l'affichage). Sert à garder cohérents les états par-copie : favori (propagé à toutes les
+/// copies) et lecture hors-ligne (utiliser le fichier téléchargé d'une copie quelconque du groupe).
+@MainActor
+enum DuplicateResolver {
+    static func albumCopies(of album: Album, in context: ModelContext) -> [Album] {
+        // La propagation d'état (favori, lecture locale) ne doit JAMAIS fusionner des éléments dont
+        // l'identité n'est pas établie. Si l'identité n'est pas discriminante (ni artiste ni année :
+        // la clé s'effondrerait en « titre|| »), on ne considère que l'album lui-même comme copie.
+        let artist = DedupKey.normalize(album.artistNameSnapshot ?? album.artist?.name)
+        guard !artist.isEmpty || album.year != nil else { return [album] }
+        let title = album.title
+        let key = DedupKey.album(album)
+        let candidates = (try? context.fetch(FetchDescriptor<Album>(predicate: #Predicate { $0.title == title }))) ?? []
+        return candidates.filter { DedupKey.album($0) == key }
+    }
+
+    static func trackCopies(of track: Track, in context: ModelContext) -> [Track] {
+        // Identité non fiable sans artiste (homonymes de durée proche) → on ne propage qu'au titre lui-même.
+        guard !DedupKey.normalize(track.artistNameSnapshot ?? track.album?.artist?.name).isEmpty else { return [track] }
+        let title = track.title
+        let base = DedupKey.trackBase(track)
+        let secs = DedupKey.seconds(track)
+        let candidates = (try? context.fetch(FetchDescriptor<Track>(predicate: #Predicate { $0.title == title }))) ?? []
+        return candidates.filter { DedupKey.trackBase($0) == base && abs(DedupKey.seconds($0) - secs) <= 2 }
+    }
+
+    static func artistCopies(of artist: Artist, in context: ModelContext) -> [Artist] {
+        guard !DedupKey.normalize(artist.name).isEmpty else { return [artist] }
+        let name = artist.name
+        let candidates = (try? context.fetch(FetchDescriptor<Artist>(predicate: #Predicate { $0.name == name }))) ?? []
+        return candidates.filter { DedupKey.artist($0) == DedupKey.artist(artist) }
+    }
+}
 
 /// Déduplication d'AFFICHAGE entre serveurs (aucune écriture en base, zéro migration) : quand le
 /// même album/titre est présent sur plusieurs serveurs, on n'affiche qu'un représentant — la copie

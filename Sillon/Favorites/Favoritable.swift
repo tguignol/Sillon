@@ -17,9 +17,28 @@ extension Track: Favoritable {}
 @MainActor
 enum Favorites {
     static func toggle(_ item: Favoritable, context: ModelContext) {
-        item.isFavorite.toggle()
-        item.favoriteDate = item.isFavorite ? .now : nil
+        setFavorite(!item.isFavorite, on: item, context: context)
+    }
+
+    /// Pose l'état favori sur l'élément ET toutes ses copies sur d'autres serveurs (mêmes clés de
+    /// dédup), pour que le favori reste cohérent quelle que soit la copie affichée comme représentante
+    /// (sinon, changer la priorité serveur ferait « disparaître » le favori).
+    static func setFavorite(_ value: Bool, on item: Favoritable, context: ModelContext) {
+        let date: Date? = value ? .now : nil
+        for target in [item] + duplicates(of: item, context: context) {
+            target.isFavorite = value
+            target.favoriteDate = date
+        }
         try? context.save()
+    }
+
+    private static func duplicates(of item: Favoritable, context: ModelContext) -> [Favoritable] {
+        switch item {
+        case let album as Album: return DuplicateResolver.albumCopies(of: album, in: context).filter { $0 !== album }
+        case let track as Track: return DuplicateResolver.trackCopies(of: track, in: context).filter { $0 !== track }
+        case let artist as Artist: return DuplicateResolver.artistCopies(of: artist, in: context).filter { $0 !== artist }
+        default: return []
+        }
     }
 }
 

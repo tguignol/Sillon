@@ -513,9 +513,8 @@ final class PlayerController {
 
     func toggleFavoriteOfCurrent() {
         guard let track = currentTrack else { return }
-        track.isFavorite.toggle()
-        track.favoriteDate = track.isFavorite ? .now : nil
-        try? context.save()
+        // Passe par Favorites.toggle pour propager le favori à toutes les copies (autres serveurs).
+        Favorites.toggle(track, context: context)
     }
 
     /// Tamponne l'album du morceau courant comme « écouté maintenant » (section « Continuer l'écoute »

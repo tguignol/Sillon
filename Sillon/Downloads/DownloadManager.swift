@@ -132,6 +132,16 @@ final class DownloadManager {
     /// URL de lecture locale si le morceau est téléchargé et présent sur disque (offline-first).
     /// Le lecteur (commit suivant) l'utilisera en priorité avant de retomber sur le streaming.
     func localURL(for track: Track) -> URL? {
+        if let url = Self.directLocalURL(track) { return url }
+        // Cette copie n'a pas de fichier local : une copie du même titre sur un autre serveur l'est
+        // peut-être (ex. après un changement de priorité serveur) → on lit alors ce fichier hors-ligne.
+        for copy in DuplicateResolver.trackCopies(of: track, in: context) where copy !== track {
+            if let url = Self.directLocalURL(copy) { return url }
+        }
+        return nil
+    }
+
+    private static func directLocalURL(_ track: Track) -> URL? {
         guard track.downloadStatus == .downloaded, let path = track.localFileURLString else { return nil }
         let url = URL(fileURLWithPath: path)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
