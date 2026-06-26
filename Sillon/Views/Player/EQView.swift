@@ -297,7 +297,7 @@ struct EQView: View {
     private func presetsSection(_ settings: EQSettings) -> some View {
         let presets = allPresets.filter { $0.modeRaw == settings.mode.rawValue }
         return VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("Mémoires — \(settings.mode.label)")
+            Text("Presets — \(settings.mode.label)")
                 .font(.caption).foregroundStyle(.secondary)
             ForEach(presets) { preset in
                 HStack(spacing: Spacing.s) {
@@ -308,17 +308,19 @@ struct EQView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.subheadline)
 
-                    Button { loadPreset(preset, into: settings) } label: {
-                        Image(systemName: "arrow.down.circle").font(.title3)
-                    }
-                    .buttonStyle(.borderless)
-                    .tint(Palette.signalTeal)
-
+                    // Enregistrer les réglages courants dans ce preset.
                     Button { savePreset(preset, from: settings) } label: {
-                        Image(systemName: "square.and.arrow.down").font(.title3)
+                        Image(systemName: "tray.and.arrow.down.fill").font(.title3)
                     }
                     .buttonStyle(.borderless)
                     .tint(Palette.accentCuivre)
+
+                    // Appliquer ce preset à l'égaliseur.
+                    Button { loadPreset(preset, into: settings) } label: {
+                        Image(systemName: "checkmark.circle.fill").font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .tint(Palette.signalTeal)
                 }
             }
         }
