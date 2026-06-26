@@ -21,8 +21,13 @@ struct EQBandsTests {
     }
 
     @Test func applyClampsGainsAndSetsBypass() {
-        let eq = AVAudioUnitEQ(numberOfBands: 4)
-        EQBands.apply(gainsDB: [20, -20, 5, 0], isEnabled: false, to: eq)
+        // `EQBands.apply` prend désormais un `EQSettings` (l'EQ appliqué est paramétrique dans tous
+        // les modes). On vérifie le bornage des gains (-12…+12 dB) et le bypass quand l'EQ est désactivé.
+        let eq = AVAudioUnitEQ(numberOfBands: 6)
+        let settings = EQSettings(bandCount: 6)
+        settings.gainsDB = [20, -20, 5, 0, 0, 0]
+        settings.isEnabled = false
+        EQBands.apply(settings, to: eq)
         #expect(eq.bands[0].gain == EQBands.maxGainDB)   // 20 borné à +12
         #expect(eq.bands[1].gain == EQBands.minGainDB)   // -20 borné à -12
         #expect(eq.bands[2].gain == 5)

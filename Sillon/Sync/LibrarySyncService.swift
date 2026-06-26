@@ -79,6 +79,11 @@ enum LibrarySyncService {
         // (et pour rendre l'opération vérifiable en test).
         if context.hasChanges { try context.save() }
 
+        // Favoris marqués CÔTÉ SERVEUR → fusionnés avec les favoris locaux (union : on n'ajoute
+        // jamais d'écriture serveur, et on ne retire jamais un favori local). Tolérant : un échec
+        // ici n'interrompt pas la synchro de bibliothèque déjà réussie.
+        await applyServerFavorites(server: server, using: provider, context: context)
+
         // Pré-téléchargement des pochettes en cache disque (toutes celles encore absentes pour ce
         // serveur) → affichage instantané ensuite, sans requête réseau par cellule.
         await prefetchArtwork(server: server, using: provider, context: context, onProgress: onProgress)
@@ -141,6 +146,34 @@ enum LibrarySyncService {
             progress.processed = index
             onProgress(progress)
         }
+    }
+
+    // MARK: - Favoris serveur (lecture seule, fusion locale)
+
+    /// Récupère les favoris marqués côté serveur et les applique aux modèles locaux correspondants
+    /// (par `remoteID`). UNION stricte : on ne fait que POSER `isFavorite = true` — jamais le retirer,
+    /// jamais réécrire quoi que ce soit sur le serveur. Un élément favori côté serveur mais pas encore
+    /// synchronisé localement est simplement ignoré (il sera marqué à une synchro ultérieure).
+    /// Tolérant aux erreurs : un serveur sans favoris ou ne supportant pas l'endpoint ne casse rien.
+    private static func applyServerFavorites(
+        server: ServerAccount,
+        using provider: any ServerProvider,
+        context: ModelContext
+    ) async {
+        guard let favorites = try? await provider.serverFavorites(), !favorites.isEmpty else { return }
+        let index = LibraryIndex(server: server, context: context)
+        for id in favorites.albumIDs { markFavorite(index.album(id)) }
+        for id in favorites.trackIDs { markFavorite(index.track(id)) }
+        for id in favorites.artistIDs { markFavorite(index.artist(id)) }
+        if context.hasChanges { try? context.save() }
+    }
+
+    /// Marque un élément comme favori sans jamais l'enlever (union avec l'état local). On ne propage
+    /// PAS aux copies miroir d'autres serveurs : chaque serveur reflète ses propres favoris.
+    private static func markFavorite(_ item: (any Favoritable)?) {
+        guard let item, !item.isFavorite else { return }
+        item.isFavorite = true
+        item.favoriteDate = .now
     }
 
     // MARK: - Application des changements

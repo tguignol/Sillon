@@ -110,7 +110,9 @@ struct FavoritesView: View {
                     }
                     .padding(.horizontal, Spacing.l)
 
-                    VStack(spacing: 0) {
+                    // LazyVStack : les favoris peuvent être nombreux (centaines de titres importés du
+                    // serveur) → rendu à la demande pour rester fluide et ne charger que les pochettes visibles.
+                    LazyVStack(spacing: 0) {
                         ForEach(Array(visibleTracks.enumerated()), id: \.element.id) { index, track in
                             TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
                                 .padding(.horizontal, Spacing.l)

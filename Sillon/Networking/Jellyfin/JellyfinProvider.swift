@@ -241,6 +241,24 @@ actor JellyfinProvider: ServerProvider {
         return decoded.Items.map(Self.makeRemoteTrack)
     }
 
+    // MARK: - Favoris serveur (lecture seule)
+
+    func serverFavorites() async throws -> RemoteFavorites {
+        try await ensureAuthenticated()
+        // `Filters=IsFavorite` (confirmé sur /Users/{id}/Items) ne renvoie que les éléments marqués
+        // favoris par l'utilisateur courant. Requêtes GET pures, paginées via `fetchItems` (500/page,
+        // donc robustes aux grandes listes) — aucune écriture serveur. `Audio` couvre tous les types
+        // audio (comme `fetchLibrary`/`syncDelta`), choix assumé : on ne filtre pas livres/podcasts.
+        let albums = try await fetchItems(includeItemTypes: "MusicAlbum", extraQuery: ["Filters": "IsFavorite"])
+        let tracks = try await fetchItems(includeItemTypes: "Audio", extraQuery: ["Filters": "IsFavorite"])
+        let artists = try await fetchItems(includeItemTypes: "MusicArtist", extraQuery: ["Filters": "IsFavorite"])
+        return RemoteFavorites(
+            albumIDs: Set(albums.map(\.Id)),
+            trackIDs: Set(tracks.map(\.Id)),
+            artistIDs: Set(artists.map(\.Id))
+        )
+    }
+
     // MARK: - Requêtes internes
 
     private func fetchItems(includeItemTypes: String, extraQuery: [String: String] = [:]) async throws -> [JellyfinBaseItem] {

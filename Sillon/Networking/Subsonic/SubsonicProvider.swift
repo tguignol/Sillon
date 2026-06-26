@@ -214,6 +214,22 @@ actor SubsonicProvider: ServerProvider {
         return Array(songs.filter { $0.id != seedTrackID }.shuffled().prefix(limit)).map(Self.makeRemoteTrack)
     }
 
+    // MARK: - Favoris serveur (lecture seule)
+
+    func serverFavorites() async throws -> RemoteFavorites {
+        // `getStarred2` : confirmé — renvoie les artistes/albums/titres « starred » de l'utilisateur.
+        // Requête GET pure — aucune écriture serveur. L'API Subsonic ne pagine pas les favoris
+        // (réponse unique) ; acceptable ici (tolérant aux erreurs en amont), une bibliothèque aux
+        // dizaines de milliers de favoris pourrait toutefois dépasser le délai d'expiration.
+        let body = try await performRequest(path: "getStarred2")
+        let starred = body.starred2
+        return RemoteFavorites(
+            albumIDs: Set((starred?.album ?? []).map(\.id)),
+            trackIDs: Set((starred?.song ?? []).map(\.id)),
+            artistIDs: Set((starred?.artist ?? []).map(\.id))
+        )
+    }
+
     private func performRequest(path: String, extraQuery: [URLQueryItem] = []) async throws -> SubsonicResponseBody {
         let url = try makeAuthenticatedURL(path: path, extraQuery: extraQuery)
 

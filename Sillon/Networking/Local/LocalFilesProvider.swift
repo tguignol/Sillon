@@ -141,6 +141,9 @@ actor LocalFilesProvider: ServerProvider {
         return Array(snapshot.tracks.filter { $0.id != seedTrackID }.shuffled().prefix(limit))
     }
 
+    /// Un dossier de fichiers locaux n'a pas de notion de favori côté « serveur » : ensemble vide.
+    func serverFavorites() async throws -> RemoteFavorites { .empty }
+
     // MARK: - Énumération du système de fichiers
 
     private struct LocalAudioFile {

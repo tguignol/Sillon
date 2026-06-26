@@ -8,10 +8,12 @@ import SwiftData
 actor StubProvider: ServerProvider {
     var snapshot: LibrarySnapshot
     var delta: SyncDelta
+    var favorites: RemoteFavorites
 
-    init(snapshot: LibrarySnapshot, delta: SyncDelta) {
+    init(snapshot: LibrarySnapshot, delta: SyncDelta, favorites: RemoteFavorites = .empty) {
         self.snapshot = snapshot
         self.delta = delta
+        self.favorites = favorites
     }
 
     func authenticate() async throws -> ProviderSession { ProviderSession() }
@@ -23,6 +25,7 @@ actor StubProvider: ServerProvider {
     func searchAll(query: String) async throws -> SearchResults { SearchResults(artists: [], albums: [], tracks: []) }
     func lyrics(forTrackID trackRemoteID: String) async throws -> TrackLyrics? { nil }
     func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack] { [] }
+    func serverFavorites() async throws -> RemoteFavorites { favorites }
 }
 
 @MainActor
@@ -114,5 +117,39 @@ struct LibrarySyncServiceTests {
         let renamed = tracks.first { $0.remoteID == "t1" }
         #expect(renamed?.title == "So What (Remaster)")
         #expect(server.syncCursor == "cursor-2")
+    }
+
+    @Test func serverFavoritesAreMergedAsUnionWithoutClearingLocal() async throws {
+        let context = makeContext()
+        let server = ServerAccount(name: "Démo", type: .jellyfin)
+        context.insert(server)
+
+        // Le serveur marque l'album "al1" et le titre "t1" comme favoris (lecture seule).
+        let favorites = RemoteFavorites(albumIDs: ["al1"], trackIDs: ["t1"], artistIDs: [])
+        let provider = StubProvider(snapshot: snapshot(), delta: emptyDelta(), favorites: favorites)
+        try await LibrarySyncService.synchronize(server, using: provider, context: context)
+
+        let albums = try context.fetch(FetchDescriptor<Album>())
+        let tracks = try context.fetch(FetchDescriptor<Track>())
+
+        // Les favoris serveur sont appliqués localement…
+        #expect(albums.first { $0.remoteID == "al1" }?.isFavorite == true)
+        #expect(tracks.first { $0.remoteID == "t1" }?.isFavorite == true)
+        // …et seulement eux (t2 n'était pas favori côté serveur).
+        #expect(tracks.first { $0.remoteID == "t2" }?.isFavorite == false)
+
+        // UNION : un favori posé localement et ABSENT du serveur ne doit JAMAIS être retiré par une synchro.
+        let t2 = try #require(tracks.first { $0.remoteID == "t2" })
+        t2.isFavorite = true
+        t2.favoriteDate = .now
+        try context.save()
+
+        // 2ᵉ synchro (delta vide) : le serveur ne connaît toujours que al1/t1.
+        let provider2 = StubProvider(snapshot: snapshot(), delta: emptyDelta(), favorites: favorites)
+        try await LibrarySyncService.synchronize(server, using: provider2, context: context)
+
+        let tracksAfter = try context.fetch(FetchDescriptor<Track>())
+        #expect(tracksAfter.first { $0.remoteID == "t1" }?.isFavorite == true)   // favori serveur conservé
+        #expect(tracksAfter.first { $0.remoteID == "t2" }?.isFavorite == true)   // favori local préservé (union)
     }
 }

@@ -47,4 +47,9 @@ protocol ServerProvider: Actor {
     /// seule). Jellyfin utilise InstantMix ; Subsonic un repli rapide par genre (les endpoints de
     /// similarité Last.fm pouvant être indisponibles/lents). Peut renvoyer `[]` si non supporté.
     func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack]
+
+    /// Identifiants des éléments marqués favoris CÔTÉ SERVEUR (albums/titres/artistes), en LECTURE
+    /// SEULE — aucune écriture serveur. Le moteur de sync les fusionne avec les favoris locaux.
+    /// Renvoie un ensemble vide si la source ne gère pas la notion de favori (ex. fichiers locaux).
+    func serverFavorites() async throws -> RemoteFavorites
 }

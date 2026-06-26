@@ -29,6 +29,15 @@ struct SubsonicResponseBody: Decodable, Sendable {
     let song: SubsonicSong?                 // getSong
     let songsByGenre: SubsonicSongsByGenre? // getSongsByGenre
     let randomSongs: SubsonicSongsByGenre?  // getRandomSongs (même forme : { song: [...] })
+    let starred2: SubsonicStarred2?         // getStarred2 (favoris « starred » de l'utilisateur)
+}
+
+/// Réponse `getStarred2` : artistes/albums/titres marqués favoris (« starred ») par l'utilisateur.
+/// Mêmes formes que partout ailleurs (champs surnuméraires ignorés). Lecture seule.
+struct SubsonicStarred2: Decodable, Sendable {
+    let artist: [SubsonicArtist]?
+    let album: [SubsonicAlbum]?
+    let song: [SubsonicSong]?
 }
 
 /// Réponse `getLyricsBySongId` (extension OpenSubsonic). `start` en millisecondes ; un tableau

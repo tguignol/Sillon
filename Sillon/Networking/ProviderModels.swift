@@ -127,6 +127,20 @@ struct SearchResults: Sendable {
     var tracks: [RemoteTrack]
 }
 
+/// Identifiants distants des éléments marqués favoris CÔTÉ SERVEUR (lecture seule). Récupérés
+/// indépendamment de la synchro de bibliothèque (Jellyfin `Filters=IsFavorite`, Subsonic
+/// `getStarred2`), puis FUSIONNÉS avec les favoris locaux par le moteur de sync — jamais réécrits
+/// sur le serveur, jamais retirés localement (union seule).
+struct RemoteFavorites: Sendable {
+    var albumIDs: Set<String> = []
+    var trackIDs: Set<String> = []
+    var artistIDs: Set<String> = []
+
+    var isEmpty: Bool { albumIDs.isEmpty && trackIDs.isEmpty && artistIDs.isEmpty }
+
+    static let empty = RemoteFavorites()
+}
+
 /// Une ligne de paroles. `timeSeconds` est non-nil pour des paroles synchronisées (Jellyfin `Start`
 /// en ticks .NET, OpenSubsonic `start` en ms) ; nil pour un vers en texte simple sans horodatage.
 struct LyricLine: Sendable, Hashable {
