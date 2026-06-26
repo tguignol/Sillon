@@ -94,16 +94,20 @@ struct FavoritesView: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.m) {
-                    Button {
-                        player?.play(queue: visibleTracks.shuffled(), startAt: 0)
-                    } label: {
-                        Label("Mixer les favoris", systemImage: "shuffle")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.m)
+                    HStack {
+                        Spacer()
+                        Button {
+                            player?.play(queue: visibleTracks.shuffled(), startAt: 0)
+                        } label: {
+                            Label("Mixer les favoris", systemImage: "shuffle")
+                                .font(.headline)
+                                .padding(.vertical, Spacing.xs)
+                                .padding(.horizontal, Spacing.m)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Palette.accentCuivre)
+                        Spacer()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Palette.accentCuivre)
                     .padding(.horizontal, Spacing.l)
 
                     VStack(spacing: 0) {
