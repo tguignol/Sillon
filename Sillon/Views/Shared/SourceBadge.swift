@@ -1,22 +1,44 @@
 import SwiftUI
 
-/// Pastille de provenance affichée en coin de pochette : petite icône du type de serveur
-/// (Jellyfin / Navidrome-Subsonic / fichiers locaux). N'apparaît qu'en présence de plusieurs
-/// serveurs (cf. `EnvironmentValues.hasMultipleServers`), où la source devient une information utile.
+/// Pastille de provenance affichée en coin de pochette : logo du serveur d'origine (Jellyfin /
+/// Navidrome-Subsonic, dessinés par `ServerMarks` ; symbole pour les fichiers locaux). N'apparaît
+/// qu'en présence de plusieurs serveurs ACTIFS (cf. `EnvironmentValues.hasMultipleServers`), où la
+/// provenance devient une information utile — avec un seul serveur actif, tout vient de la même source.
 struct SourceBadge: View {
     let type: ServerType
 
     var body: some View {
-        // Scrim média : couleurs FIXES (indépendantes de l'apparence claire/sombre), comme un overlay
-        // posé sur une pochette — sinon le badge vire au blanc-sur-blanc en mode clair.
-        Image(systemName: type.systemImageName)
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.white)
+        // Pastille sur fond blanc fixe (indépendant de l'apparence claire/sombre) : garantit le
+        // contraste des logos colorés posés sur une pochette quelconque, et l'ombre les en détache.
+        mark
+            .padding(markPadding)
             .frame(width: 20, height: 20)
-            .background(Color.black.opacity(0.55), in: Circle())
-            .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+            .background(.white, in: Circle())
+            .overlay(Circle().strokeBorder(.black.opacity(0.12), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.3), radius: 1.5, x: 0, y: 0.5)
             .padding(5)
             .accessibilityLabel("Source : \(type.displayName)")
+    }
+
+    @ViewBuilder private var mark: some View {
+        switch type {
+        case .jellyfin: JellyfinMark()
+        case .subsonic:  NavidromeMark()
+        case .local:
+            Image(systemName: type.systemImageName)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.22))
+        }
+    }
+
+    /// Marge interne par marque : le vinyle remplit la pastille (bord noir propre), le triangle
+    /// Jellyfin et le symbole local respirent un peu plus.
+    private var markPadding: CGFloat {
+        switch type {
+        case .subsonic: 1.5
+        case .jellyfin: 3
+        case .local:    4
+        }
     }
 }
 
@@ -40,8 +62,9 @@ struct SourceCountBadge: View {
     }
 }
 
-/// Vrai dès qu'au moins deux serveurs sont configurés → les vues affichent alors les pastilles de
-/// source pour distinguer la provenance des albums/titres.
+/// Vrai dès qu'au moins deux serveurs sont **actifs** → les vues affichent alors les pastilles de
+/// source pour distinguer la provenance des albums/titres (avec un seul serveur actif, tout provient
+/// de la même source : les pastilles seraient redondantes et la déduplication inutile).
 private struct HasMultipleServersKey: EnvironmentKey {
     static let defaultValue = false
 }

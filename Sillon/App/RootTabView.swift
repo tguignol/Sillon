@@ -38,8 +38,10 @@ struct RootTabView: View {
                 SettingsRootView()
             }
         }
-        // Les pastilles de source n'apparaissent qu'avec ≥2 serveurs configurés (sinon redondantes).
-        .environment(\.hasMultipleServers, servers.count > 1)
+        // Les pastilles de source n'ont de sens qu'avec ≥2 serveurs ACTIFS : si un seul est activé,
+        // tout provient de la même source — pastilles masquées (et déduplication des titres
+        // court-circuitée, cf. TracksListView/BrowseViews qui gardent `&& hasMultipleServers`).
+        .environment(\.hasMultipleServers, servers.filter(\.isActive).count > 1)
         .modifier(NowPlayingAccessory(show: hasNowPlaying) { showPlayer = true })
         #if os(iOS)
         .fullScreenCover(isPresented: $showPlayer) { PlayerView() }
