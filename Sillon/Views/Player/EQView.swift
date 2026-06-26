@@ -98,9 +98,12 @@ struct EQView: View {
             }
             .frame(maxHeight: .infinity)
 
-            Button("Réinitialiser (plat)") { resetFlat(settings) }
-                .buttonStyle(.bordered)
-                .tint(Palette.accentCuivre)
+            // « Réinitialiser » ne concerne que l'édition : on le masque quand les presets sont ouverts.
+            if !showPresets {
+                Button("Réinitialiser (plat)") { resetFlat(settings) }
+                    .buttonStyle(.bordered)
+                    .tint(Palette.accentCuivre)
+            }
 
             presetsToggleButton
         }
