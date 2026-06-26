@@ -12,7 +12,8 @@ enum SillonSchema {
             Playlist.self,
             PlaylistItem.self,
             DownloadTask.self,
-            EQSettings.self
+            EQSettings.self,
+            EQPreset.self
         ]
     }
 

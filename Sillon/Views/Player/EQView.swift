@@ -10,6 +10,7 @@ struct EQView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var settings: EQSettings?
     @State private var selectedBand: Int?
+    @Query(sort: \EQPreset.slot) private var allPresets: [EQPreset]
 
     var body: some View {
         NavigationStack {
@@ -32,6 +33,7 @@ struct EQView: View {
             .background(Palette.fondNoir)
         }
         .task {
+            EQPresetStore.ensure(context)    // crée les 4 mémoires par défaut de chaque mode
             let loaded = EQSettingsStore.load(context)
             ensureParametricArrays(loaded)   // les deux modes éditent fréquences/largeurs
             settings = loaded
@@ -69,8 +71,11 @@ struct EQView: View {
                     parametricEditor(settings)
                 }
             }
+            .frame(maxHeight: .infinity)
             .opacity(settings.isEnabled ? 1 : 0.4)
             .disabled(!settings.isEnabled)
+
+            presetsSection(settings)
 
             Button("Réinitialiser (plat)") { resetFlat(settings) }
                 .buttonStyle(.bordered)
@@ -244,6 +249,61 @@ struct EQView: View {
         settings.updatedAt = .now
         try? context.save()
         player?.refreshEQ()
+    }
+
+    // MARK: - Mémoires (presets)
+
+    private func presetsSection(_ settings: EQSettings) -> some View {
+        let presets = allPresets.filter { $0.modeRaw == settings.mode.rawValue }
+        return VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("Mémoires — \(settings.mode.label)")
+                .font(.caption).foregroundStyle(.secondary)
+            ForEach(presets) { preset in
+                HStack(spacing: Spacing.s) {
+                    TextField("Réglage \(preset.slot)", text: Binding(
+                        get: { preset.name },
+                        set: { preset.name = $0; try? context.save() }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+
+                    Button { loadPreset(preset, into: settings) } label: {
+                        Image(systemName: "arrow.down.circle").font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .tint(Palette.signalTeal)
+
+                    Button { savePreset(preset, from: settings) } label: {
+                        Image(systemName: "square.and.arrow.down").font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .tint(Palette.accentCuivre)
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.l)
+    }
+
+    /// Charge une mémoire dans les réglages courants (et reconstruit l'EQ si le nb de bandes change).
+    private func loadPreset(_ preset: EQPreset, into settings: EQSettings) {
+        settings.mode = preset.mode
+        settings.bandCount = preset.bandCount
+        settings.gainsDB = preset.gainsDB
+        settings.frequencies = preset.frequencies
+        settings.bandwidths = preset.bandwidths
+        ensureParametricArrays(settings)
+        selectedBand = nil
+        commit(settings)
+    }
+
+    /// Enregistre les réglages courants dans une mémoire.
+    private func savePreset(_ preset: EQPreset, from settings: EQSettings) {
+        preset.bandCount = settings.bandCount
+        preset.gainsDB = settings.gainsDB
+        preset.frequencies = settings.frequencies
+        preset.bandwidths = settings.bandwidths
+        preset.updatedAt = .now
+        try? context.save()
     }
 }
 
