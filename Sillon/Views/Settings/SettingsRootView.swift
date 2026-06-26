@@ -34,7 +34,11 @@ struct SettingsRootView: View {
                 } label: {
                     Label("Langue", systemImage: "globe")
                 }
-                .pickerStyle(.navigationLink)
+                #if os(iOS)
+                .pickerStyle(.navigationLink)   // sous-page (liste) — adapté aux 11 entrées
+                #else
+                .pickerStyle(.menu)             // .navigationLink indisponible sur macOS
+                #endif
                 NavigationLink {
                     ServerListView()
                 } label: {
