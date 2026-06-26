@@ -28,18 +28,17 @@ final class EQPreset {
     }
 }
 
-/// Crée à la demande les 4 presets par défaut de chaque mode (« Réglage 1…4 »).
+/// Sème les presets par défaut (4 par mode, « Réglage 1…4 ») UNE SEULE FOIS, au tout premier
+/// lancement (table vide). Ensuite l'utilisateur gère librement ajout/suppression : on ne recrée
+/// rien automatiquement, pour qu'une suppression soit définitive.
 @MainActor
 enum EQPresetStore {
     static func ensure(_ context: ModelContext) {
         let existing = (try? context.fetch(FetchDescriptor<EQPreset>())) ?? []
-        var created = false
+        guard existing.isEmpty else { return }
         for mode in EQMode.allCases {
-            for slot in 1...4 where !existing.contains(where: { $0.modeRaw == mode.rawValue && $0.slot == slot }) {
-                context.insert(EQPreset(mode: mode, slot: slot))
-                created = true
-            }
+            for slot in 1...4 { context.insert(EQPreset(mode: mode, slot: slot)) }
         }
-        if created { try? context.save() }
+        try? context.save()
     }
 }

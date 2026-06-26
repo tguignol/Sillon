@@ -11,6 +11,7 @@ struct EQView: View {
     @State private var settings: EQSettings?
     @State private var selectedBand: Int?
     @State private var showPresets = false
+    @State private var newPresetName = ""
     @Query(sort: \EQPreset.slot) private var allPresets: [EQPreset]
 
     private let maxPresetsPerMode = 9
@@ -359,25 +360,36 @@ struct EQView: View {
                     .buttonStyle(.borderless)
                     .tint(Palette.accentCuivre)
 
-                    // Appliquer ce preset à l'égaliseur.
+                    // Appliquer ce preset (et fermer le panneau).
                     Button { loadPreset(preset, into: settings) } label: {
                         Image(systemName: "checkmark.circle.fill").font(.title3)
                     }
                     .buttonStyle(.borderless)
                     .tint(Palette.signalTeal)
+
+                    // Supprimer ce preset.
+                    Button { deletePreset(preset) } label: {
+                        Image(systemName: "minus.circle.fill").font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .tint(.red)
                 }
             }
 
+            // Ligne d'ajout : un preset vide avec un + à côté de la zone de texte.
             if presets.count < maxPresetsPerMode {
-                Button { addPreset(for: settings.mode) } label: {
-                    Label("Ajouter un preset", systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Spacing.xs)
+                HStack(spacing: Spacing.m) {
+                    TextField("Nouveau preset", text: $newPresetName)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .frame(maxWidth: 220)
+                    Button { addPreset(for: settings.mode) } label: {
+                        Image(systemName: "plus.circle.fill").font(.title3)
+                    }
+                    .buttonStyle(.borderless)
+                    .tint(Palette.accentCuivre)
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Palette.accentCuivre)
-                .padding(.top, Spacing.xs)
             }
         }
         .frame(maxWidth: 360)              // évite des lignes trop larges
@@ -386,15 +398,27 @@ struct EQView: View {
     }
 
     /// Ajoute un nouveau preset (vide) pour le mode courant, jusqu'à `maxPresetsPerMode`.
+    /// Reprend le nom saisi dans la zone de texte, sinon « Réglage N ».
     private func addPreset(for mode: EQMode) {
         let modePresets = allPresets.filter { $0.modeRaw == mode.rawValue }
         guard modePresets.count < maxPresetsPerMode else { return }
         let nextSlot = (modePresets.map(\.slot).max() ?? 0) + 1
-        context.insert(EQPreset(mode: mode, slot: nextSlot))
+        let preset = EQPreset(mode: mode, slot: nextSlot)
+        let trimmed = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { preset.name = trimmed }
+        context.insert(preset)
+        try? context.save()
+        newPresetName = ""
+    }
+
+    /// Supprime un preset.
+    private func deletePreset(_ preset: EQPreset) {
+        context.delete(preset)
         try? context.save()
     }
 
-    /// Applique un preset aux réglages courants (et reconstruit l'EQ si le nb de bandes change).
+    /// Applique un preset aux réglages courants (et reconstruit l'EQ si le nb de bandes change),
+    /// puis ferme le panneau presets.
     private func loadPreset(_ preset: EQPreset, into settings: EQSettings) {
         settings.mode = preset.mode
         settings.bandCount = preset.bandCount
@@ -404,6 +428,7 @@ struct EQView: View {
         ensureParametricArrays(settings)
         selectedBand = nil
         commit(settings)
+        withAnimation(.easeInOut(duration: 0.2)) { showPresets = false }
     }
 
     /// Enregistre les réglages courants dans un preset.
