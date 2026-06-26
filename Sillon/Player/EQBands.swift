@@ -30,12 +30,13 @@ enum EQBands {
     /// le mode « Normal » fige fréquences (log) et largeur (1 octave) et n'expose que le gain, tandis
     /// que le mode « Paramétrique » applique les fréquences/largeurs réglées par l'utilisateur.
     static func apply(_ settings: EQSettings, to eq: AVAudioUnitEQ) {
+        // Les deux modes (Graphique / Paramétrique) éditent les mêmes tableaux fréquence/largeur :
+        // on les applique toujours s'ils sont dimensionnés, sinon repli sur les défauts log.
         let count = eq.bands.count
-        let isParam = settings.mode == .parametric
-        let freqs: [Float] = (isParam && settings.frequencies.count == count)
+        let freqs: [Float] = settings.frequencies.count == count
             ? settings.frequencies.map { Float($0) }
             : frequencies(count: count)
-        let bws: [Float] = (isParam && settings.bandwidths.count == count)
+        let bws: [Float] = settings.bandwidths.count == count
             ? settings.bandwidths.map { Float($0) }
             : Array(repeating: 1.0, count: count)
 

@@ -9,6 +9,7 @@ struct EQView: View {
     @Environment(\.playerController) private var player
     @Environment(\.dismiss) private var dismiss
     @State private var settings: EQSettings?
+    @State private var selectedBand: Int?
 
     var body: some View {
         NavigationStack {
@@ -30,7 +31,11 @@ struct EQView: View {
             }
             .background(Palette.fondNoir)
         }
-        .task { settings = EQSettingsStore.load(context) }
+        .task {
+            let loaded = EQSettingsStore.load(context)
+            ensureParametricArrays(loaded)   // les deux modes éditent fréquences/largeurs
+            settings = loaded
+        }
     }
 
     private func content(settings: EQSettings) -> some View {
@@ -74,15 +79,39 @@ struct EQView: View {
         .padding(.top, Spacing.l)
     }
 
-    // MARK: - Mode « Normal » (graphique)
+    // MARK: - Mode « Graphique » (courbe à déplacer à la main)
 
     private func graphicEditor(_ settings: EQSettings) -> some View {
-        HStack(alignment: .center, spacing: Spacing.s) {
-            ForEach(settings.gainsDB.indices, id: \.self) { index in
-                bandSlider(settings: settings, index: index)
+        VStack(spacing: Spacing.m) {
+            EQCurveView(settings: settings, selectedBand: $selectedBand, onChange: { commit(settings) })
+                .padding(.horizontal, Spacing.l)
+
+            if let i = selectedBand, settings.gainsDB.indices.contains(i) {
+                selectedBandControls(settings, i)
+            } else {
+                Text("Glissez les poignées (fréquence ↔, gain ↕). Touchez-en une pour régler sa largeur.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.l)
             }
         }
-        .frame(height: 240)
+    }
+
+    private func selectedBandControls(_ settings: EQSettings, _ index: Int) -> some View {
+        let freq = parametricFrequency(settings, index)
+        let bw = parametricBandwidth(settings, index)
+        return VStack(spacing: Spacing.xs) {
+            Text("Bande \(index + 1) · \(EQBands.label(for: Float(freq))) Hz · \(String(format: "%+.0f", settings.gainsDB[index])) dB · \(String(format: "%.1f", bw)) oct")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Palette.signalTeal)
+            labeledSlider(
+                "Largeur",
+                value: Binding(get: { bw }, set: { setBandwidth($0, settings: settings, index: index) }),
+                range: 0.1...3.0
+            )
+            .padding(.horizontal, Spacing.l)
+        }
     }
 
     // MARK: - Mode « Paramétrique »
@@ -170,7 +199,8 @@ struct EQView: View {
 
     private func setMode(_ mode: EQMode, settings: EQSettings) {
         settings.mode = mode
-        if mode == .parametric { ensureParametricArrays(settings) }
+        ensureParametricArrays(settings)   // les deux modes partagent fréquences/largeurs
+        selectedBand = nil
         commit(settings)
     }
 
@@ -182,29 +212,6 @@ struct EQView: View {
         }
         if settings.bandwidths.count != count {
             settings.bandwidths = Array(repeating: 1.0, count: count)
-        }
-    }
-
-    private func bandSlider(settings: EQSettings, index: Int) -> some View {
-        let frequencies = EQBands.frequencies(count: settings.bandCount)
-        return VStack(spacing: Spacing.xs) {
-            Text(String(format: "%+.0f", settings.gainsDB[index]))
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(Palette.signalTeal)
-            Slider(
-                value: Binding(
-                    get: { settings.gainsDB[index] },
-                    set: { settings.gainsDB[index] = $0; commit(settings) }
-                ),
-                in: Double(EQBands.minGainDB)...Double(EQBands.maxGainDB)
-            )
-            .tint(Palette.accentCuivre)
-            .rotationEffect(.degrees(-90))
-            .frame(width: 180)
-            .frame(width: 30, height: 180)
-            Text(EQBands.label(for: index < frequencies.count ? frequencies[index] : 0))
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -224,8 +231,12 @@ struct EQView: View {
         commit(settings)
     }
 
+    /// Remet TOUT à plat (gains 0, fréquences aux défauts log, largeurs 1 octave). Comme les deux
+    /// modes partagent ces tableaux, l'aplatissement vaut pour le Graphique ET le Paramétrique.
     private func resetFlat(_ settings: EQSettings) {
         settings.gainsDB = Array(repeating: 0, count: settings.bandCount)
+        settings.frequencies = EQBands.frequencies(count: settings.bandCount).map(Double.init)
+        settings.bandwidths = Array(repeating: 1.0, count: settings.bandCount)
         commit(settings)
     }
 

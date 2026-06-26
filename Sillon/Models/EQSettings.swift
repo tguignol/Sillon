@@ -7,7 +7,7 @@ enum EQMode: String, Codable, CaseIterable, Identifiable, Sendable {
     case graphic
     case parametric
     var id: String { rawValue }
-    var label: String { self == .graphic ? "Normal" : "Paramétrique" }
+    var label: String { self == .graphic ? "Graphique" : "Paramétrique" }
 }
 
 /// État courant de l'égaliseur.
