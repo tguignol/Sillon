@@ -21,6 +21,7 @@ enum LibrarySyncService {
             case fetchingLibrary   // scan complet
             case fetchingDelta     // synchro incrémentale
             case applying          // écriture SwiftData
+            case fetchingArtwork   // téléchargement des pochettes en cache disque
             case done
         }
         var phase: Phase
@@ -78,7 +79,68 @@ enum LibrarySyncService {
         // (et pour rendre l'opération vérifiable en test).
         if context.hasChanges { try context.save() }
 
+        // Pré-téléchargement des pochettes en cache disque (toutes celles encore absentes pour ce
+        // serveur) → affichage instantané ensuite, sans requête réseau par cellule.
+        await prefetchArtwork(server: server, using: provider, context: context, onProgress: onProgress)
+
         onProgress(Progress(phase: .done))
+    }
+
+    // MARK: - Pré-téléchargement des pochettes
+
+    /// Télécharge en cache disque les pochettes des albums du serveur encore absentes du cache.
+    /// Tolérant aux erreurs (une pochette qui échoue n'interrompt pas la synchro). Téléchargements
+    /// par lots concurrents bornés pour ne pas saturer le réseau.
+    private static func prefetchArtwork(
+        server: ServerAccount,
+        using provider: any ServerProvider,
+        context: ModelContext,
+        onProgress: (Progress) -> Void
+    ) async {
+        let serverID = server.id
+        let allAlbums = (try? context.fetch(FetchDescriptor<Album>())) ?? []
+        let paths = allAlbums
+            .filter { $0.server?.id == serverID }
+            .compactMap { $0.coverArtRemotePath }
+        let uniquePaths = Array(Set(paths))
+
+        // Ne garder que les pochettes pas encore en cache.
+        var pending: [String] = []
+        for path in uniquePaths where await ArtworkCache.shared.existingFile(serverID: serverID, path: path) == nil {
+            pending.append(path)
+        }
+        guard !pending.isEmpty else { return }
+
+        // Résolution des URLs distantes (rapide : construction d'URL, jeton déjà en cache).
+        let size = ArtworkCache.canonicalSize
+        var targets: [(path: String, url: URL)] = []
+        for path in pending {
+            if let url = try? await provider.coverArtURL(for: path, preferredSize: size) {
+                targets.append((path, url))
+            }
+        }
+        guard !targets.isEmpty else { return }
+
+        var progress = Progress(phase: .fetchingArtwork, total: targets.count)
+        onProgress(progress)
+
+        // Téléchargement par lots concurrents (URL/Data/UUID sont Sendable → pas de capture du provider).
+        let batchSize = 8
+        var index = 0
+        while index < targets.count {
+            let batch = Array(targets[index..<min(index + batchSize, targets.count)])
+            await withTaskGroup(of: Void.self) { group in
+                for target in batch {
+                    group.addTask {
+                        guard let (data, _) = try? await URLSession.shared.data(from: target.url) else { return }
+                        await ArtworkCache.shared.store(data, serverID: serverID, path: target.path)
+                    }
+                }
+            }
+            index += batch.count
+            progress.processed = index
+            onProgress(progress)
+        }
     }
 
     // MARK: - Application des changements

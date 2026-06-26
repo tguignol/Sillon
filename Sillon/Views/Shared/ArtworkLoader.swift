@@ -21,6 +21,24 @@ final class ArtworkLoader {
     /// par défaut.
     nonisolated init() {}
 
+    /// Renvoie une URL **fichier locale** vers la pochette en cache disque (affichage instantané).
+    /// Cache-first : sert le fichier local s'il existe, sinon résout l'URL distante, télécharge,
+    /// range en cache et renvoie le fichier local. `nil` si indisponible (pas de pochette, serveur
+    /// local sans image, ou erreur réseau → l'UI affiche son placeholder).
+    func localCoverURL(path: String?, server: ServerAccount?) async -> URL? {
+        guard let path, !path.isEmpty, let server else { return nil }
+        if let cached = await ArtworkCache.shared.existingFile(serverID: server.id, path: path) {
+            return cached
+        }
+        guard let remote = await coverURL(path: path, server: server, size: ArtworkCache.canonicalSize) else { return nil }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: remote)
+            return await ArtworkCache.shared.store(data, serverID: server.id, path: path)
+        } catch {
+            return remote   // repli : laisser AsyncImage retenter le réseau
+        }
+    }
+
     /// Renvoie une URL d'image directement chargeable par `AsyncImage`, ou `nil` si indisponible
     /// (pas de pochette, serveur de fichiers locaux, ou erreur réseau → l'UI affiche un placeholder).
     func coverURL(path: String?, server: ServerAccount?, size: Int) async -> URL? {

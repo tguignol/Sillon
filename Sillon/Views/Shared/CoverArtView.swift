@@ -34,7 +34,8 @@ struct CoverArtView: View {
         .task(id: taskID) {
             guard !didResolve else { return }
             didResolve = true
-            resolvedURL = await loader.coverURL(path: path, server: server, size: preferredSize)
+            // Cache-first : fichier local si déjà synchronisé (instantané), sinon télécharge+cache.
+            resolvedURL = await loader.localCoverURL(path: path, server: server)
         }
     }
 

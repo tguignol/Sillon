@@ -62,6 +62,8 @@ struct ServerRowView: View {
         case .fetchingDelta: return "Mise à jour…"
         case .applying:
             return progress.total > 0 ? "\(progress.processed)/\(progress.total)" : "Écriture…"
+        case .fetchingArtwork:
+            return progress.total > 0 ? "Pochettes \(progress.processed)/\(progress.total)" : "Pochettes…"
         case .done: return "Terminé"
         }
     }
