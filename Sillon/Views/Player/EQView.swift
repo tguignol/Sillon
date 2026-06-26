@@ -65,10 +65,10 @@ struct EQView: View {
             .padding(.horizontal, Spacing.l)
 
             Group {
-                if settings.mode == .graphic {
-                    graphicEditor(settings)
-                } else {
-                    parametricEditor(settings)
+                switch settings.mode {
+                case .normal: normalEditor(settings)
+                case .parametric: parametricEditor(settings)
+                case .graphic: graphicEditor(settings)
                 }
             }
             .frame(maxHeight: .infinity)
@@ -82,6 +82,40 @@ struct EQView: View {
                 .tint(Palette.accentCuivre)
         }
         .padding(.top, Spacing.l)
+    }
+
+    // MARK: - Mode « Normal » (curseurs verticaux, fréquences fixes)
+
+    private func normalEditor(_ settings: EQSettings) -> some View {
+        HStack(alignment: .center, spacing: Spacing.s) {
+            ForEach(settings.gainsDB.indices, id: \.self) { index in
+                bandSlider(settings: settings, index: index)
+            }
+        }
+        .frame(height: 240)
+    }
+
+    private func bandSlider(settings: EQSettings, index: Int) -> some View {
+        let frequencies = EQBands.frequencies(count: settings.bandCount)
+        return VStack(spacing: Spacing.xs) {
+            Text(String(format: "%+.0f", settings.gainsDB[index]))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Palette.signalTeal)
+            Slider(
+                value: Binding(
+                    get: { settings.gainsDB[index] },
+                    set: { settings.gainsDB[index] = $0; commit(settings) }
+                ),
+                in: Double(EQBands.minGainDB)...Double(EQBands.maxGainDB)
+            )
+            .tint(Palette.accentCuivre)
+            .rotationEffect(.degrees(-90))
+            .frame(width: 180)
+            .frame(width: 30, height: 180)
+            Text(EQBands.label(for: index < frequencies.count ? frequencies[index] : 0))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
     }
 
     // MARK: - Mode « Graphique » (courbe à déplacer à la main)
@@ -204,7 +238,14 @@ struct EQView: View {
 
     private func setMode(_ mode: EQMode, settings: EQSettings) {
         settings.mode = mode
-        ensureParametricArrays(settings)   // les deux modes partagent fréquences/largeurs
+        if mode == .normal {
+            // Bandes standard : fréquences log fixes + largeur 1 octave (gains conservés). Ainsi
+            // l'affichage = le son, et la transposition vers Paramétrique/Graphique reste exacte.
+            settings.frequencies = EQBands.frequencies(count: settings.bandCount).map(Double.init)
+            settings.bandwidths = Array(repeating: 1.0, count: settings.bandCount)
+        } else {
+            ensureParametricArrays(settings)
+        }
         selectedBand = nil
         commit(settings)
     }

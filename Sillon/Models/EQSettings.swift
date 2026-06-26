@@ -1,13 +1,23 @@
 import Foundation
 import SwiftData
 
-/// Mode de l'égaliseur. `graphic` (« Normal ») : bandes à fréquences fixes log et largeur fixe, seul
-/// le gain est réglable. `parametric` : fréquence centrale + largeur (octaves) + gain réglables par bande.
+/// Mode d'édition de l'égaliseur (l'EQ appliqué est paramétrique dans tous les cas) :
+/// - `normal` : curseurs verticaux, bandes à fréquences fixes (log) et largeur fixe → gain seul ;
+/// - `parametric` : fréquence + largeur (octaves) + gain réglables par bande (cartes numériques) ;
+/// - `graphic` : courbe de réponse, une poignée par bande glissée à la main (façon Sennheiser Smart Control).
+/// Ordre d'affichage des onglets = ordre de déclaration.
 enum EQMode: String, Codable, CaseIterable, Identifiable, Sendable {
-    case graphic
+    case normal
     case parametric
+    case graphic
     var id: String { rawValue }
-    var label: String { self == .graphic ? "Graphique" : "Paramétrique" }
+    var label: String {
+        switch self {
+        case .normal: "Normal"
+        case .parametric: "Paramétrique"
+        case .graphic: "Graphique"
+        }
+    }
 }
 
 /// État courant de l'égaliseur.
@@ -24,8 +34,8 @@ final class EQSettings {
     var isEnabled: Bool
     var updatedAt: Date
 
-    /// Mode (« Normal » / « Paramétrique »). Stocké en brut (String) → migration légère.
-    var modeRaw: String = EQMode.graphic.rawValue
+    /// Mode d'édition courant. Stocké en brut (String) → migration légère.
+    var modeRaw: String = EQMode.normal.rawValue
     /// Paramétrique : fréquence centrale (Hz) par bande. Vide ou taille ≠ bandCount ⇒ défauts log.
     var frequencies: [Double] = []
     /// Paramétrique : largeur de bande (octaves) par bande. Vide ou taille ≠ bandCount ⇒ 1.0.
