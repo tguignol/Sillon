@@ -62,11 +62,18 @@ struct PlayerView: View {
             }
             Spacer()
             Menu {
-                Picker("Visualisation", selection: $spectrumStyleRaw) {
+                Picker(selection: $spectrumStyleRaw) {
                     ForEach(SpectrumStyle.allCases) { style in
                         Label(style.label, systemImage: style.systemImage).tag(style.rawValue)
                     }
+                } label: {
+                    // Libellé via le passe-plat : le titre LocalizedStringKey d'un Picker ne suit pas
+                    // notre redirection de langue sur macOS (en-tête affiché en anglais).
+                    Text(LanguageManager.string("Visualisation"))
                 }
+                // `.inline` affiche les options directement dans le menu. Sans ça, macOS rend le Picker
+                // comme un SOUS-MENU (« Visualisation › ») qui se ferme au clic → menu inutilisable.
+                .pickerStyle(.inline)
             } label: {
                 Image(systemName: spectrumStyle.systemImage).font(.title3).foregroundStyle(Palette.texteIvoire)
             }
