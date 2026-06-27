@@ -27,7 +27,9 @@ struct PlayerView: View {
             // jamais une feuille qui se dimensionne sur son contenu — donc le GeometryReader la mesure
             // correctement. Largeur > hauteur = paysage → disposition deux colonnes (iPhone/iPad ET macOS).
             GeometryReader { proxy in
-                styled(layout(track: track, player: player, landscape: proxy.size.width > proxy.size.height))
+                styled(layout(track: track, player: player,
+                              landscape: proxy.size.width > proxy.size.height,
+                              size: proxy.size))
             }
         } else {
             ContentUnavailableView("Rien en lecture", systemImage: "music.note")
@@ -50,12 +52,18 @@ struct PlayerView: View {
     /// Portrait : pile verticale (pochette/spectre en haut, contrôles dessous).
     /// Paysage : deux colonnes — pochette/spectre à gauche, métadonnées + transport + contrôles à droite.
     @ViewBuilder
-    private func layout(track: Track, player: PlayerController, landscape: Bool) -> some View {
+    private func layout(track: Track, player: PlayerController, landscape: Bool, size: CGSize) -> some View {
         if landscape {
+            // Tailles adaptées à la fenêtre : la pochette grandit avec l'espace disponible (plafonnée
+            // pour rester élégante en très grande fenêtre), les contrôles gardent une largeur lisible et
+            // centrée plutôt que de s'étirer d'un bord à l'autre. En petite fenêtre, la pochette rétrécit
+            // naturellement (aspect-fit) jusqu'à disparaître — ce comportement reste inchangé.
+            let coverMax = min(size.width * 0.45, size.height * 0.82, 640)
+            let controlsMax = min(size.width * 0.46, 480)
             VStack(spacing: Spacing.l) {
                 topBar
                 HStack(spacing: Spacing.xl) {
-                    mainVisual(track: track, player: player)
+                    mainVisual(track: track, player: player, maxSide: coverMax)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: Spacing.l) {
                         Spacer(minLength: 0)
@@ -66,7 +74,8 @@ struct PlayerView: View {
                         bottomRow(track: track, player: player)
                         Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: controlsMax)   // largeur lisible (barres non étirées)
+                    .frame(maxWidth: .infinity)     // …centrée dans sa moitié
                 }
             }
         } else {
@@ -75,7 +84,7 @@ struct PlayerView: View {
                 Spacer(minLength: 0)
                 // Marge sous la pochette : les barres de spectre atteignent presque le bord du cadre ;
                 // on sépare nettement du titre juste dessous (paroles : pas de marge, elles emplissent l'espace).
-                mainVisual(track: track, player: player)
+                mainVisual(track: track, player: player, maxSide: 344)
                     .padding(.bottom, showLyrics ? 0 : Spacing.xxl)
                 titles(track: track)
                 progressSection(player: player)
@@ -90,13 +99,13 @@ struct PlayerView: View {
     /// Visuel central : pochette + spectre, ou paroles (à la Apple Music) — le transport reste
     /// accessible à côté/dessous sans fermer les paroles.
     @ViewBuilder
-    private func mainVisual(track: Track, player: PlayerController) -> some View {
+    private func mainVisual(track: Track, player: PlayerController, maxSide: CGFloat) -> some View {
         if showLyrics {
             LyricsView(track: track)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
         } else {
-            artwork(track: track, player: player)
+            artwork(track: track, player: player, maxSide: maxSide)
         }
     }
 
@@ -153,7 +162,7 @@ struct PlayerView: View {
     }
 
     @ViewBuilder
-    private func artwork(track: Track, player: PlayerController) -> some View {
+    private func artwork(track: Track, player: PlayerController, maxSide: CGFloat) -> some View {
         Group {
             switch spectrumStyle {
             case .off:
@@ -169,8 +178,9 @@ struct PlayerView: View {
                 }
             }
         }
-        .frame(maxWidth: 344)
+        // Carré qui occupe l'espace proposé puis se plafonne à `maxSide` (qui s'adapte à la fenêtre).
         .aspectRatio(1, contentMode: .fit)
+        .frame(maxWidth: maxSide, maxHeight: maxSide)
     }
 
     private func cover(_ track: Track) -> some View {
