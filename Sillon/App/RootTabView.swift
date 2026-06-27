@@ -11,73 +11,72 @@ struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.playerController) private var playerController
     @Query private var servers: [ServerAccount]
+    #if os(iOS)
     @State private var showPlayer = false
+    #endif
 
     private var hasNowPlaying: Bool { playerController?.currentTrack != nil }
 
     var body: some View {
-        TabView {
-            Tab("Accueil", systemImage: "house.fill") {
-                HomeView()
-            }
+        Group {
+            #if os(iOS)
+            // iOS/iPadOS : navigation par onglets, lecteur en plein écran.
+            TabView {
+                Tab("Accueil", systemImage: "house.fill") {
+                    HomeView()
+                }
 
-            Tab("Bibliothèque", systemImage: "music.note.list") {
-                LibraryRootView()
-            }
+                Tab("Bibliothèque", systemImage: "music.note.list") {
+                    LibraryRootView()
+                }
 
-            Tab("Favoris", systemImage: "heart.fill") {
-                FavoritesView()
-            }
+                Tab("Favoris", systemImage: "heart.fill") {
+                    FavoritesView()
+                }
 
-            // Recherche globale (toute la bibliothèque, tous serveurs actifs) — intercalée avant Réglages.
-            Tab("Recherche", systemImage: "magnifyingglass") {
-                SearchView()
-            }
+                // Recherche globale (toute la bibliothèque, tous serveurs actifs) — intercalée avant Réglages.
+                Tab("Recherche", systemImage: "magnifyingglass") {
+                    SearchView()
+                }
 
-            Tab("Réglages", systemImage: "gearshape.fill") {
-                SettingsRootView()
+                Tab("Réglages", systemImage: "gearshape.fill") {
+                    SettingsRootView()
+                }
             }
+            .modifier(NowPlayingAccessory(show: hasNowPlaying) { showPlayer = true })
+            .fullScreenCover(isPresented: $showPlayer) { PlayerView() }
+            #else
+            // macOS : barre latérale + lecteur en deux colonnes dans la zone de détail.
+            MacSidebarRootView()
+            #endif
         }
         // Les pastilles de source n'ont de sens qu'avec ≥2 serveurs ACTIFS : si un seul est activé,
         // tout provient de la même source — pastilles masquées (et déduplication des titres
         // court-circuitée, cf. TracksListView/BrowseViews qui gardent `&& hasMultipleServers`).
         .environment(\.hasMultipleServers, servers.filter(\.isActive).count > 1)
-        .modifier(NowPlayingAccessory(show: hasNowPlaying) { showPlayer = true })
-        #if os(iOS)
-        .fullScreenCover(isPresented: $showPlayer) { PlayerView() }
-        #else
-        .sheet(isPresented: $showPlayer) { PlayerView().frame(minWidth: 360, minHeight: 600) }
-        #endif
         #if DEBUG
         .task { await DebugBootstrap.runIfRequested(context: modelContext) }
         #endif
     }
 }
 
+#if os(iOS)
 /// Ancre le mini-lecteur uniquement quand un morceau est en cours — évite la capsule vide quand
-/// rien ne joue. iOS 26 : slot natif `tabViewBottomAccessory` ; macOS : `safeAreaInset`.
+/// rien ne joue. iOS 26 : slot natif `tabViewBottomAccessory` au-dessus de la barre d'onglets.
+/// (Sur macOS, c'est `MacSidebarRootView` qui ancre son propre mini-lecteur.)
 private struct NowPlayingAccessory: ViewModifier {
     let show: Bool
     let onTap: () -> Void
 
     func body(content: Content) -> some View {
-        #if os(iOS)
         if show {
             content.tabViewBottomAccessory { NowPlayingBar(onTap: onTap) }
         } else {
             content
         }
-        #else
-        content.safeAreaInset(edge: .bottom) {
-            if show {
-                NowPlayingBar(onTap: onTap)
-                    .padding(.vertical, Spacing.s)
-                    .background(.thinMaterial)
-            }
-        }
-        #endif
     }
 }
+#endif
 
 #Preview("Vide (aucun serveur)") {
     RootTabView()

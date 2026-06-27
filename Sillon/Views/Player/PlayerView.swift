@@ -8,6 +8,9 @@ import AVKit
 struct PlayerView: View {
     @Environment(\.playerController) private var player
     @Environment(\.dismiss) private var dismiss
+    /// Fermeture personnalisée : utilisée quand le lecteur n'est PAS présenté en feuille/plein écran
+    /// (cas macOS, affiché en ligne dans la zone de détail) — `dismiss` n'y ferait rien.
+    var onClose: (() -> Void)? = nil
     @State private var showEQ = false
     @State private var showQueue = false
     @State private var showLyrics = false
@@ -20,18 +23,12 @@ struct PlayerView: View {
 
     var body: some View {
         if let player, let track = player.currentTrack {
-            #if os(iOS)
-            // iOS/iPad : la feuille est dimensionnée par la présentation (plein écran/detents), donc
-            // le GeometryReader la remplit. On choisit la disposition selon le format (largeur > hauteur
-            // = paysage), ce qui couvre iPhone ET iPad sans dépendre des classes de taille.
+            // Le lecteur remplit toujours une zone DIMENSIONNÉE (plein écran iOS, zone de détail macOS) —
+            // jamais une feuille qui se dimensionne sur son contenu — donc le GeometryReader la mesure
+            // correctement. Largeur > hauteur = paysage → disposition deux colonnes (iPhone/iPad ET macOS).
             GeometryReader { proxy in
                 styled(layout(track: track, player: player, landscape: proxy.size.width > proxy.size.height))
             }
-            #else
-            // macOS : pas de rotation ; la feuille se dimensionne sur son contenu. On garde donc la pile
-            // verticale d'origine SANS GeometryReader (qui n'a pas de taille idéale et rétrécirait la feuille).
-            styled(layout(track: track, player: player, landscape: false))
-            #endif
         } else {
             ContentUnavailableView("Rien en lecture", systemImage: "music.note")
                 .background(Palette.fondNoir)
@@ -103,9 +100,14 @@ struct PlayerView: View {
         }
     }
 
+    /// Ferme le lecteur : repli en ligne sur macOS (`onClose`), sinon fermeture de la présentation (`dismiss`).
+    private func close() {
+        if let onClose { onClose() } else { dismiss() }
+    }
+
     private var topBar: some View {
         HStack(spacing: Spacing.l) {
-            Button { dismiss() } label: {
+            Button { close() } label: {
                 Image(systemName: "chevron.down").font(.title3).foregroundStyle(Palette.texteIvoire)
             }
             Spacer()
