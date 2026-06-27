@@ -33,10 +33,13 @@ enum Favorites {
     }
 
     private static func duplicates(of item: Favoritable, context: ModelContext) -> [Favoritable] {
+        // `caseInsensitive: true` : un favori se propage même à une copie dont le titre/nom diverge
+        // seulement par la casse ou les diacritiques entre serveurs (sinon le favori « disparaîtrait »
+        // en désactivant le serveur prioritaire). Action ponctuelle → le coût du pré-filtre élargi est négligeable.
         switch item {
-        case let album as Album: return DuplicateResolver.albumCopies(of: album, in: context).filter { $0 !== album }
-        case let track as Track: return DuplicateResolver.trackCopies(of: track, in: context).filter { $0 !== track }
-        case let artist as Artist: return DuplicateResolver.artistCopies(of: artist, in: context).filter { $0 !== artist }
+        case let album as Album: return DuplicateResolver.albumCopies(of: album, in: context, caseInsensitive: true).filter { $0 !== album }
+        case let track as Track: return DuplicateResolver.trackCopies(of: track, in: context, caseInsensitive: true).filter { $0 !== track }
+        case let artist as Artist: return DuplicateResolver.artistCopies(of: artist, in: context, caseInsensitive: true).filter { $0 !== artist }
         default: return []
         }
     }
