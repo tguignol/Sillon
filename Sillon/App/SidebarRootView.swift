@@ -1,16 +1,14 @@
-#if os(macOS)
 import SwiftUI
 
-/// Racine macOS dédiée : navigation par **barre latérale** (façon Apple Music / Finder) au lieu des
-/// onglets, et **lecteur en deux colonnes** affiché en grand dans la zone de détail (la fenêtre Mac
-/// est large → `PlayerView` y bascule automatiquement sur sa disposition paysage).
+/// Racine à **barre latérale** (façon Apple Music / Finder) : navigation `NavigationSplitView` +
+/// lecteur en deux colonnes affiché dans la zone de détail. Utilisée sur **macOS** (toujours) et sur
+/// **iPad en paysage** ; iPhone et iPad en portrait gardent la `TabView` plein écran (cf. `RootTabView`).
 ///
-/// iOS/iPadOS gardent la `TabView` plein écran (cf. `RootTabView`) : seules la navigation et la
-/// présentation du lecteur diffèrent — toutes les vues de contenu (grilles, listes, cartes) sont
-/// réutilisées telles quelles.
-struct MacSidebarRootView: View {
+/// La barre latérale offre nativement un bouton de repli (masquage complet) — identique à Apple Music.
+/// Toutes les vues de contenu (grilles, listes, cartes) sont réutilisées telles quelles.
+struct SidebarRootView: View {
     @Environment(\.playerController) private var player
-    @State private var selection: MacSection? = .accueil
+    @State private var selection: SidebarSection? = .accueil
     /// Quand vrai, la zone de détail montre le lecteur plein format à la place de la section courante.
     @State private var showPlayer = false
 
@@ -19,7 +17,7 @@ struct MacSidebarRootView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                ForEach(MacSection.allCases) { section in
+                ForEach(SidebarSection.allCases) { section in
                     Label(section.label, systemImage: section.systemImage)
                         .tag(section)
                 }
@@ -51,7 +49,7 @@ struct MacSidebarRootView: View {
     }
 
     @ViewBuilder
-    private func section(_ s: MacSection) -> some View {
+    private func section(_ s: SidebarSection) -> some View {
         switch s {
         case .accueil: HomeView()
         case .bibliotheque: LibraryRootView()
@@ -62,8 +60,8 @@ struct MacSidebarRootView: View {
     }
 }
 
-/// Entrées de la barre latérale macOS — mêmes destinations que les onglets iOS.
-enum MacSection: String, CaseIterable, Identifiable {
+/// Entrées de la barre latérale — mêmes destinations que les onglets iPhone.
+enum SidebarSection: String, CaseIterable, Identifiable {
     case accueil, bibliotheque, favoris, recherche, reglages
 
     var id: String { rawValue }
@@ -88,4 +86,3 @@ enum MacSection: String, CaseIterable, Identifiable {
         }
     }
 }
-#endif
