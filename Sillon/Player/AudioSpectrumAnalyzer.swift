@@ -23,6 +23,13 @@ final class AudioSpectrumAnalyzer {
     private var onUpdate: (([Float], [Float]) -> Void)?
     private weak var tappedNode: AVAudioNode?
 
+    /// Synchronise l'usage de `fftSetup` / `onUpdate` (thread audio temps réel) avec le démontage
+    /// (MainActor / `deinit`) : sans ça, un callback de tap en vol pourrait lire un `onUpdate` muté
+    /// ou utiliser `fftSetup` APRÈS sa destruction (use-after-free). Verrou non contendu hors démontage
+    /// — acceptable pour ce tap de visualisation (≠ chemin de lecture audio).
+    private let lock = NSLock()
+    private var alive = true
+
     init(bandCount: Int = 48, fftSize: Int = 1024, waveformCount: Int = 128) {
         self.bandCount = bandCount
         self.waveformCount = waveformCount
@@ -35,13 +42,16 @@ final class AudioSpectrumAnalyzer {
     }
 
     deinit {
-        removeTap()
-        vDSP_destroy_fftsetup(fftSetup)
+        removeTap()                       // plus AUCUN nouveau callback de tap après ça
+        lock.lock()
+        alive = false                     // un callback résiduel verra ceci et n'utilisera pas fftSetup
+        vDSP_destroy_fftsetup(fftSetup)   // détruit SOUS le verrou : aucun process() ne peut l'utiliser en même temps
+        lock.unlock()
     }
 
     func installTap(on node: AVAudioNode, onUpdate: @escaping ([Float], [Float]) -> Void) {
         removeTap()
-        self.onUpdate = onUpdate
+        lock.lock(); self.onUpdate = onUpdate; lock.unlock()
         let format = node.outputFormat(forBus: 0)
         node.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: format) { [weak self] buffer, _ in
             self?.process(buffer)
@@ -52,12 +62,18 @@ final class AudioSpectrumAnalyzer {
     func removeTap() {
         tappedNode?.removeTap(onBus: 0)
         tappedNode = nil
+        lock.lock(); onUpdate = nil; lock.unlock()
     }
 
     // MARK: - Traitement (thread audio)
 
     private func process(_ buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData, Int(buffer.frameLength) >= fftSize else { return }
+        // Tout l'usage de fftSetup + onUpdate sous verrou : empêche un démontage concurrent (destruction
+        // de fftSetup / mise à nil d'onUpdate) pendant le calcul. `alive` == false ⇒ on ne touche pas fftSetup.
+        lock.lock()
+        defer { lock.unlock() }
+        guard alive, let onUpdate else { return }
         let samples = channelData[0]
 
         // Forme d'onde temporelle (oscilloscope) : sous-échantillonnage des échantillons bruts.
@@ -93,7 +109,7 @@ final class AudioSpectrumAnalyzer {
         var elements = Int32(halfSize)
         vvsqrtf(&amplitudes, magnitudes, &elements)
 
-        onUpdate?(groupIntoBands(amplitudes), waveform)
+        onUpdate(groupIntoBands(amplitudes), waveform)
     }
 
     /// Regroupe les magnitudes en `bandCount` bandes log, normalisées en 0…1 (échelle dB perceptuelle).

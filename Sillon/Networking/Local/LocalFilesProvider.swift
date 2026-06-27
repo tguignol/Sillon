@@ -11,12 +11,19 @@ actor LocalFilesProvider: ServerProvider {
     private let folderBookmark: Data?
     private let fileManager = FileManager.default
     private var resolvedFolderURL: URL?
+    /// Vrai si on détient un accès security-scoped en cours (à relâcher pour ne pas fuir la ressource).
+    private var didStartAccess = false
 
     private static let supportedExtensions: Set<String> = ["mp3", "m4a", "flac", "alac", "wav", "aiff", "aif", "ogg"]
 
     init(serverID: UUID, folderBookmark: Data?) {
         self.serverID = serverID
         self.folderBookmark = folderBookmark
+    }
+
+    deinit {
+        // Relâche l'accès security-scoped tenu pour la durée de vie du provider (sinon fuite de ressource).
+        if didStartAccess { resolvedFolderURL?.stopAccessingSecurityScopedResource() }
     }
 
     func authenticate() async throws -> ProviderSession {
@@ -38,10 +45,17 @@ actor LocalFilesProvider: ServerProvider {
             throw ProviderError.unreachable(underlying: error)
         }
 
+        // Si un accès était déjà ouvert (ré-authentification), on le relâche d'abord pour garder les
+        // appels start/stop équilibrés (sinon fuite).
+        if didStartAccess {
+            resolvedFolderURL?.stopAccessingSecurityScopedResource()
+            didStartAccess = false
+        }
         guard url.startAccessingSecurityScopedResource() else {
             throw ProviderError.unauthorized
         }
         resolvedFolderURL = url
+        didStartAccess = true
         return ProviderSession(serverDisplayName: url.lastPathComponent, serverVersion: nil, userID: nil, token: nil)
     }
 
