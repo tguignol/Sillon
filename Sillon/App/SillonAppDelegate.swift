@@ -14,3 +14,16 @@ final class SillonAppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 #endif
+
+#if os(macOS)
+import AppKit
+
+/// AppDelegate macOS : **quitter l'app quand la dernière fenêtre est fermée**. L'utilisateur ne veut pas
+/// que la lecture (ni quoi que ce soit) continue en arrière-plan, ni avoir à faire « Quit Sillon » :
+/// fermer la fenêtre = fermer l'app, le processus se termine et le moteur audio s'arrête avec lui.
+final class SillonMacAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
+#endif

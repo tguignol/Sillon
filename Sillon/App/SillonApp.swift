@@ -7,6 +7,9 @@ struct SillonApp: App {
 
     #if os(iOS)
     @UIApplicationDelegateAdaptor(SillonAppDelegate.self) private var appDelegate
+    #elseif os(macOS)
+    // Fermer la dernière fenêtre quitte l'app (pas de lecture qui continue en arrière-plan).
+    @NSApplicationDelegateAdaptor(SillonMacAppDelegate.self) private var macAppDelegate
     #endif
 
     init() {
