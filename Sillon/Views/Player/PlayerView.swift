@@ -20,21 +20,66 @@ struct PlayerView: View {
 
     var body: some View {
         if let player, let track = player.currentTrack {
+            #if os(iOS)
+            // iOS/iPad : la feuille est dimensionnée par la présentation (plein écran/detents), donc
+            // le GeometryReader la remplit. On choisit la disposition selon le format (largeur > hauteur
+            // = paysage), ce qui couvre iPhone ET iPad sans dépendre des classes de taille.
+            GeometryReader { proxy in
+                styled(layout(track: track, player: player, landscape: proxy.size.width > proxy.size.height))
+            }
+            #else
+            // macOS : pas de rotation ; la feuille se dimensionne sur son contenu. On garde donc la pile
+            // verticale d'origine SANS GeometryReader (qui n'a pas de taille idéale et rétrécirait la feuille).
+            styled(layout(track: track, player: player, landscape: false))
+            #endif
+        } else {
+            ContentUnavailableView("Rien en lecture", systemImage: "music.note")
+                .background(Palette.fondNoir)
+        }
+    }
+
+    /// Habillage commun (fond, marges, feuilles modales) appliqué à la disposition choisie.
+    private func styled(_ content: some View) -> some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, Spacing.xl)
+            .padding(.vertical, Spacing.l)
+            .background(Palette.fondNoir)
+            .animation(.easeInOut(duration: 0.25), value: showLyrics)
+            .sheet(isPresented: $showEQ) { EQView() }
+            .sheet(isPresented: $showQueue) { QueueView() }
+    }
+
+    /// Portrait : pile verticale (pochette/spectre en haut, contrôles dessous).
+    /// Paysage : deux colonnes — pochette/spectre à gauche, métadonnées + transport + contrôles à droite.
+    @ViewBuilder
+    private func layout(track: Track, player: PlayerController, landscape: Bool) -> some View {
+        if landscape {
+            VStack(spacing: Spacing.l) {
+                topBar
+                HStack(spacing: Spacing.xl) {
+                    mainVisual(track: track, player: player)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: Spacing.l) {
+                        Spacer(minLength: 0)
+                        titles(track: track)
+                        progressSection(player: player)
+                        transport(player: player)
+                        volumeSection(player: player)
+                        bottomRow(track: track, player: player)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        } else {
             VStack(spacing: Spacing.xl) {
                 topBar
                 Spacer(minLength: 0)
-                // Les paroles remplacent la pochette/​spectre (à la Apple Music) : le transport reste
-                // accessible dessous, sans fermer les paroles.
-                if showLyrics {
-                    LyricsView(track: track)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .transition(.opacity)
-                } else {
-                    // Marge sous la pochette : les barres de spectre atteignent presque le bord du
-                    // cadre ; on remonte l'ensemble et on sépare nettement du titre juste dessous.
-                    artwork(track: track, player: player)
-                        .padding(.bottom, Spacing.xxl)
-                }
+                // Marge sous la pochette : les barres de spectre atteignent presque le bord du cadre ;
+                // on sépare nettement du titre juste dessous (paroles : pas de marge, elles emplissent l'espace).
+                mainVisual(track: track, player: player)
+                    .padding(.bottom, showLyrics ? 0 : Spacing.xxl)
                 titles(track: track)
                 progressSection(player: player)
                 transport(player: player)
@@ -42,16 +87,19 @@ struct PlayerView: View {
                 bottomRow(track: track, player: player)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, Spacing.xl)
-            .padding(.vertical, Spacing.l)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Palette.fondNoir)
-            .animation(.easeInOut(duration: 0.25), value: showLyrics)
-            .sheet(isPresented: $showEQ) { EQView() }
-            .sheet(isPresented: $showQueue) { QueueView() }
+        }
+    }
+
+    /// Visuel central : pochette + spectre, ou paroles (à la Apple Music) — le transport reste
+    /// accessible à côté/dessous sans fermer les paroles.
+    @ViewBuilder
+    private func mainVisual(track: Track, player: PlayerController) -> some View {
+        if showLyrics {
+            LyricsView(track: track)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
         } else {
-            ContentUnavailableView("Rien en lecture", systemImage: "music.note")
-                .background(Palette.fondNoir)
+            artwork(track: track, player: player)
         }
     }
 
