@@ -64,12 +64,14 @@ enum LibrarySyncService {
             if let cursor = delta.newSyncCursor { server.syncCursor = cursor }
         } else {
             onProgress(Progress(phase: .fetchingLibrary))
+            // Curseur capturé AVANT le scan (potentiellement long) : tout ajout serveur pendant le fetch
+            // sera repris au prochain delta (recouvrement borné, upsert idempotent) plutôt que manqué.
+            // `fetchLibrary()` ne renvoie pas de curseur ; format ISO8601 (UTC), commun aux providers.
+            let cursorStart = ISO8601DateFormatter().string(from: .now)
             let snapshot = try await provider.fetchLibrary()
             applyFull(snapshot: snapshot, to: server, context: context, onProgress: onProgress)
             server.lastFullSyncDate = .now
-            // `fetchLibrary()` ne renvoie pas de curseur ; on amorce le prochain delta avec l'instant
-            // présent (format ISO8601, commun aux trois providers — cf. leurs `syncDelta`).
-            server.syncCursor = ISO8601DateFormatter().string(from: .now)
+            server.syncCursor = cursorStart
         }
 
         server.lastDeltaSyncDate = .now

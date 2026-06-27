@@ -36,10 +36,13 @@ final class DownloadSessionDelegate: NSObject, URLSessionDownloadDelegate {
                     totalBytesWritten: Int64,
                     totalBytesExpectedToWrite: Int64) {
         guard totalBytesExpectedToWrite > 0 else { return }
+        // On identifie le morceau par le trackID encodé dans `taskDescription` (fiable), PAS par
+        // `taskIdentifier` qui est réutilisé entre tâches/sessions → progression sur le mauvais morceau.
+        guard let payload = DownloadManager.decode(downloadTask.taskDescription) else { return }
         let fraction = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        let tid = downloadTask.taskIdentifier
+        let trackID = payload.trackID
         Task { @MainActor [weak self] in
-            self?.manager?.updateProgress(taskIdentifier: tid, fraction: fraction)
+            self?.manager?.updateProgress(trackID: trackID, fraction: fraction)
         }
     }
 

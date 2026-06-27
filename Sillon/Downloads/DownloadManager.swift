@@ -172,12 +172,12 @@ final class DownloadManager {
 
     // MARK: - Callbacks (appelés sur le MainActor depuis le délégué)
 
-    func updateProgress(taskIdentifier: Int, fraction: Double) {
-        guard let record = taskRecord(forTaskIdentifier: taskIdentifier) else { return }
+    func updateProgress(trackID: String, fraction: Double) {
+        guard let record = existingTask(for: trackID) else { return }
         record.progressFraction = fraction
         if record.status != .downloading {
             record.status = .downloading
-            track(for: record.trackID)?.downloadStatus = .downloading
+            track(for: trackID)?.downloadStatus = .downloading
         }
     }
 
@@ -224,10 +224,6 @@ final class DownloadManager {
         return try? context.fetch(descriptor).first
     }
 
-    private func taskRecord(forTaskIdentifier tid: Int) -> DownloadTask? {
-        let descriptor = FetchDescriptor<DownloadTask>(predicate: #Predicate { $0.urlSessionTaskIdentifier == tid })
-        return try? context.fetch(descriptor).first
-    }
 
     func track(for trackID: String) -> Track? {
         let descriptor = FetchDescriptor<Track>(predicate: #Predicate { $0.id == trackID })

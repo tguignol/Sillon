@@ -68,6 +68,9 @@ actor SubsonicProvider: ServerProvider {
         // s'arrête dès qu'on atteint un album plus ancien que le curseur. Couvre le cas d'usage
         // principal ("j'ai ajouté de la musique"), pas les renommages/suppressions, traités par une
         // réconciliation complète périodique via fetchLibrary (cf. moteur de sync, commit suivant).
+        // Curseur du prochain delta capturé AVANT le fetch (course de curseur, comme Jellyfin) :
+        // un album ajouté pendant ce scan sera repris au prochain delta plutôt que manqué.
+        let nextCursor = ISO8601DateFormatter().string(from: .now)
         let (newAlbums, newTracks) = try await fetchAllAlbumsAndTracks(type: "newest", stopAt: cursorDate)
 
         return SyncDelta(
@@ -78,7 +81,7 @@ actor SubsonicProvider: ServerProvider {
             deletedTrackIDs: [],
             deletedAlbumIDs: [],
             deletedArtistIDs: [],
-            newSyncCursor: ISO8601DateFormatter().string(from: .now)
+            newSyncCursor: nextCursor
         )
     }
 

@@ -119,6 +119,9 @@ actor JellyfinProvider: ServerProvider {
             )
         }
         try await ensureAuthenticated()
+        // Curseur du prochain delta capturé AVANT le fetch : sinon un élément ajouté pendant ce scan
+        // (MinDateLastSaved antérieur au curseur pris APRÈS) serait manqué par le delta suivant.
+        let nextCursor = ISO8601DateFormatter().string(from: .now)
 
         let artistItems = try await fetchItems(includeItemTypes: "MusicArtist", extraQuery: ["MinDateLastSaved": cursor])
         let albumItems = try await fetchItems(includeItemTypes: "MusicAlbum", extraQuery: ["MinDateLastSaved": cursor])
@@ -144,7 +147,7 @@ actor JellyfinProvider: ServerProvider {
             deletedTrackIDs: [],
             deletedAlbumIDs: [],
             deletedArtistIDs: [],
-            newSyncCursor: ISO8601DateFormatter().string(from: .now)
+            newSyncCursor: nextCursor
         )
     }
 

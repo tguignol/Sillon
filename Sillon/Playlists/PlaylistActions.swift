@@ -32,27 +32,41 @@ enum PlaylistActions {
         try? context.save()
     }
 
+    /// Supprime des items (indices dans la liste VISIBLE `ordered`) puis réindexe **tous** les items
+    /// restants — visibles ET masqués (serveurs inactifs) — de façon contiguë, en gardant leur ordre.
+    /// Réindexer seulement les visibles ferait collisionner leurs positions avec celles des masqués.
     static func removeItems(at offsets: IndexSet, from ordered: [PlaylistItem], playlist: Playlist, context: ModelContext) {
-        let removed = Set(offsets)
-        for index in offsets where ordered.indices.contains(index) {
-            context.delete(ordered[index])
-        }
-        // Réindexe les positions restantes de façon contiguë (pas de trous).
-        let survivors = ordered.enumerated().filter { !removed.contains($0.offset) }.map(\.element)
-        for (position, item) in survivors.enumerated() {
-            item.position = position
-        }
+        let removedItems = offsets.compactMap { ordered.indices.contains($0) ? ordered[$0] : nil }
+        let removedSet = Set(removedItems.map(ObjectIdentifier.init))
+        // Survivants calculés AVANT la suppression (visibles + masqués), triés par position.
+        let survivors = playlist.items
+            .filter { !removedSet.contains(ObjectIdentifier($0)) }
+            .sorted { $0.position < $1.position }
+        for item in removedItems { context.delete(item) }
+        for (position, item) in survivors.enumerated() { item.position = position }
         playlist.updatedAt = .now
         try? context.save()
     }
 
-    /// Réordonne par glisser-déposer : réécrit `position` de façon contiguë selon le nouvel ordre.
+    /// Réordonne par glisser-déposer dans la liste VISIBLE, puis réécrit `position` sur **l'ensemble**
+    /// des items : les masqués (serveurs inactifs) gardent leur place relative, les visibles suivent le
+    /// nouvel ordre. Réindexer seulement les visibles corromprait les positions des masqués.
     static func move(_ ordered: [PlaylistItem], from source: IndexSet, to destination: Int, playlist: Playlist, context: ModelContext) {
-        var items = ordered
-        items.move(fromOffsets: source, toOffset: destination)
-        for (index, item) in items.enumerated() {
-            item.position = index
+        var visible = ordered
+        visible.move(fromOffsets: source, toOffset: destination)
+
+        let visibleSet = Set(visible.map(ObjectIdentifier.init))
+        let originalOrder = playlist.items.sorted { $0.position < $1.position }
+        var newVisible = visible.makeIterator()
+        var merged: [PlaylistItem] = []
+        for item in originalOrder {
+            if visibleSet.contains(ObjectIdentifier(item)) {
+                if let next = newVisible.next() { merged.append(next) }   // slot visible → nouvel ordre
+            } else {
+                merged.append(item)                                       // slot masqué → place conservée
+            }
         }
+        for (index, item) in merged.enumerated() { item.position = index }
         playlist.updatedAt = .now
         try? context.save()
     }
