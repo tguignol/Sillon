@@ -165,6 +165,13 @@ struct AddServerView: View {
         }
         .disabled(!viewModel.canSave || viewModel.isTesting)
 
+        // Avertissement non bloquant : adresse en http (identifiants/flux en clair sur le réseau).
+        if let warning = viewModel.insecureSchemeWarning {
+            Label(warning, systemImage: "lock.open.trianglebadge.exclamationmark")
+                .foregroundStyle(.orange)
+                .font(.caption)
+        }
+
         switch viewModel.connectionTest {
         case .success(let message):
             Label(message, systemImage: "checkmark.circle.fill")

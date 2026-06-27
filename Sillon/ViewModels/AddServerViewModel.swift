@@ -68,6 +68,16 @@ final class AddServerViewModel {
         hasPersistedCredentials = false
     }
 
+    /// Avertissement (non bloquant) si l'adresse serveur est en **http** (non chiffré) : les identifiants
+    /// — token/sel Subsonic dans l'URL, mot de passe à l'authentification — et le flux audio transitent
+    /// alors en clair sur le réseau. Non bloquant car un serveur local en http reste un cas légitime.
+    var insecureSchemeWarning: String? {
+        guard serverType != .local else { return nil }
+        guard let scheme = URL(string: baseURLString.trimmingCharacters(in: .whitespaces))?.scheme?.lowercased() else { return nil }
+        guard scheme == "http" else { return nil }
+        return LanguageManager.string("Adresse en http (non chiffré) : vos identifiants et le flux transitent en clair sur le réseau. Préférez https si votre serveur le permet.")
+    }
+
     var canSave: Bool {
         switch serverType {
         case .jellyfin:

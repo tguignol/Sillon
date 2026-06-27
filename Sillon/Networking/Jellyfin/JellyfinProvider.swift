@@ -206,7 +206,7 @@ actor JellyfinProvider: ServerProvider {
         var request = URLRequest(url: url)
         request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
 
-        let (data, response) = try await perform(request)
+        let (data, response) = try await performWithReauth(request)
         // 404 = pas de paroles pour ce morceau : cas normal, on renvoie nil sans lever d'erreur.
         if let http = response as? HTTPURLResponse, http.statusCode == 404 { return nil }
         try Self.validate(response, data: data)
@@ -238,8 +238,7 @@ actor JellyfinProvider: ServerProvider {
         guard let url = components.url else { throw ProviderError.invalidURL }
         var request = URLRequest(url: url)
         request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
-        let (data, response) = try await perform(request)
-        try Self.validate(response, data: data)
+        let (data, response) = try await performValidated(request)
         let decoded = try JSONDecoder().decode(JellyfinItemsResponse.self, from: data)
         return decoded.Items.map(Self.makeRemoteTrack)
     }
@@ -294,8 +293,7 @@ actor JellyfinProvider: ServerProvider {
             var request = URLRequest(url: url)
             request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
 
-            let (data, response) = try await perform(request)
-            try Self.validate(response, data: data)
+            let (data, response) = try await performValidated(request)
 
             let page: JellyfinItemsResponse
             do {
@@ -326,8 +324,7 @@ actor JellyfinProvider: ServerProvider {
         var request = URLRequest(url: url)
         request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
 
-        let (data, response) = try await perform(request)
-        try Self.validate(response, data: data)
+        let (data, response) = try await performValidated(request)
         let decoded = try JSONDecoder().decode(JellyfinItemsResponse.self, from: data)
         return decoded.Items.map(\.Id)
     }
@@ -345,6 +342,29 @@ actor JellyfinProvider: ServerProvider {
         } catch {
             throw ProviderError.unreachable(underlying: error)
         }
+    }
+
+    /// `perform` avec récupération automatique sur **401** : si le jeton a expiré/été révoqué, on vide
+    /// le cache, on ré-authentifie et on retente UNE fois avec le jeton frais (en-tête reconstruit).
+    /// Sans ça, un jeton mort resterait en cache et toutes les requêtes échoueraient en boucle jusqu'au
+    /// redémarrage. Ne PAS utiliser pour la requête d'authentification (risque de boucle). Ne valide pas
+    /// le code de statut — l'appelant le fait (ex. `lyrics` traite le 404).
+    private func performWithReauth(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        let (data, response) = try await perform(request)
+        guard (response as? HTTPURLResponse)?.statusCode == 401 else { return (data, response) }
+        cachedToken = nil
+        cachedUserID = nil
+        _ = try await authenticate()
+        var retried = request
+        retried.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
+        return try await perform(retried)
+    }
+
+    /// `performWithReauth` + validation du code de statut.
+    private func performValidated(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        let (data, response) = try await performWithReauth(request)
+        try Self.validate(response, data: data)
+        return (data, response)
     }
 
     private func authorizationHeaderValue(includingToken: Bool) -> String {
