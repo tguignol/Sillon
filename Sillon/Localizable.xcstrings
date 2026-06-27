@@ -6326,7 +6326,7 @@
         "sr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Grafikon"
+            "value" : "Grafički"
           }
         },
         "tr" : {
@@ -6768,7 +6768,7 @@
         "sq" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Token (token)"
+            "value" : "Token"
           }
         },
         "sr" : {
@@ -10929,7 +10929,7 @@
         "sq" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Salt (salt)"
+            "value" : "Salt"
           }
         },
         "sr" : {
@@ -10941,7 +10941,7 @@
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Salt (salt)"
+            "value" : "Salt"
           }
         }
       }
