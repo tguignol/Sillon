@@ -72,7 +72,7 @@ struct PlaybackSettingsView: View {
         }
         .scrollContentBackground(.hidden)   // laisse voir Palette.fondNoir derrière le Form groupé
         .background(Palette.fondNoir)
-        .navigationTitle("Lecture")
+        .navigationTitle(LanguageManager.string("Lecture"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

@@ -23,7 +23,7 @@ struct QueueView: View {
                     ContentUnavailableView("File vide", systemImage: "list.bullet")
                 }
             }
-            .navigationTitle("File d'attente")
+            .navigationTitle(LanguageManager.string("File d'attente"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

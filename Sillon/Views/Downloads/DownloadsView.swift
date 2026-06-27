@@ -30,7 +30,7 @@ struct DownloadsView: View {
                 .listStyle(.plain)
             }
         }
-        .navigationTitle("Téléchargements")
+        .navigationTitle(LanguageManager.string("Téléchargements"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

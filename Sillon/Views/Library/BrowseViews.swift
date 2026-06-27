@@ -12,7 +12,7 @@ struct BrowseRootView: View {
                 Label("Par décennie", systemImage: "calendar")
             }
         }
-        .navigationTitle("Parcourir")
+        .navigationTitle(LanguageManager.string("Parcourir"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -43,7 +43,7 @@ struct GenresListView: View {
                 }
             }
         }
-        .navigationTitle("Genres")
+        .navigationTitle(LanguageManager.string("Genres"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -127,7 +127,7 @@ struct DecadesListView: View {
                 }
             }
         }
-        .navigationTitle("Décennies")
+        .navigationTitle(LanguageManager.string("Décennies"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

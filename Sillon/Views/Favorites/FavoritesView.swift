@@ -54,7 +54,7 @@ struct FavoritesView: View {
                     }
                 }
             }
-            .navigationTitle("Favoris")
+            .navigationTitle(LanguageManager.string("Favoris"))
             .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
         }
     }

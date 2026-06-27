@@ -42,7 +42,7 @@ struct LibraryRootView: View {
                     }
                 }
             }
-            .navigationTitle("Bibliothèque")
+            .navigationTitle(LanguageManager.string("Bibliothèque"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -60,7 +60,7 @@ struct SettingsRootView: View {
                     Label("Lecture", systemImage: "play.circle")
                 }
             }
-            .navigationTitle("Réglages")
+            .navigationTitle(LanguageManager.string("Réglages"))
         }
     }
 }

@@ -42,7 +42,7 @@ struct AddServerView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Ajouter un serveur")
+            .navigationTitle(LanguageManager.string("Ajouter un serveur"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annuler") {

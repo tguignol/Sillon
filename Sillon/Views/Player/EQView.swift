@@ -25,7 +25,7 @@ struct EQView: View {
                     ProgressView()
                 }
             }
-            .navigationTitle("Égaliseur")
+            .navigationTitle(LanguageManager.string("Égaliseur"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

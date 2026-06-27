@@ -53,7 +53,7 @@ struct AddToPlaylistView: View {
                     }
                 }
             }
-            .navigationTitle(tracks.count == 1 ? "Ajouter à…" : "Ajouter \(tracks.count) titres")
+            .navigationTitle(tracks.count == 1 ? LanguageManager.string("Ajouter à…") : LanguageManager.string("Ajouter %lld titres", tracks.count))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

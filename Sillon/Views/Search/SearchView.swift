@@ -25,7 +25,7 @@ struct SearchView: View {
                     )
                 }
             }
-            .navigationTitle("Recherche")
+            .navigationTitle(LanguageManager.string("Recherche"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

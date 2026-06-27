@@ -60,7 +60,7 @@ struct ServerListView: View {
                 }
             }
         }
-        .navigationTitle("Serveurs")
+        .navigationTitle(LanguageManager.string("Serveurs"))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

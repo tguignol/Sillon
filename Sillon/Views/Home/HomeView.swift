@@ -51,7 +51,7 @@ struct HomeView: View {
                     content
                 }
             }
-            .navigationTitle("Accueil")
+            .navigationTitle(LanguageManager.string("Accueil"))
             // Toute la navigation de l'Accueil est value-based : les destinations sont déclarées UNE
             // seule fois ici, à la racine, et desservent aussi bien les carrousels que les vues
             // poussées par les accès rapides (qui s'appuient dessus via `providesNavigationDestination:
@@ -63,13 +63,13 @@ struct HomeView: View {
                 switch destination {
                 case .albums:
                     AlbumsGridView(providesNavigationDestination: false)
-                        .navigationTitle("Albums")
+                        .navigationTitle(LanguageManager.string("Albums"))
                         #if os(iOS)
                         .navigationBarTitleDisplayMode(.inline)
                         #endif
                 case .artistes:
                     ArtistsListView(providesNavigationDestination: false)
-                        .navigationTitle("Artistes")
+                        .navigationTitle(LanguageManager.string("Artistes"))
                         #if os(iOS)
                         .navigationBarTitleDisplayMode(.inline)
                         #endif
