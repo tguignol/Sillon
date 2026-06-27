@@ -14,6 +14,12 @@ actor LocalFilesProvider: ServerProvider {
     /// Vrai si on détient un accès security-scoped en cours (à relâcher pour ne pas fuir la ressource).
     private var didStartAccess = false
 
+    /// Cache de la dernière bibliothèque construite + sa signature (chemin → date de modif) : évite de
+    /// relire les métadonnées AVFoundation de TOUS les fichiers à chaque recherche/radio. Rebâti
+    /// uniquement quand l'ensemble des fichiers (ou leurs dates de modif) a changé.
+    private var cachedSnapshot: LibrarySnapshot?
+    private var cachedSignature: [String: Date]?
+
     private static let supportedExtensions: Set<String> = ["mp3", "m4a", "flac", "alac", "wav", "aiff", "aif", "ogg"]
 
     init(serverID: UUID, folderBookmark: Data?) {
@@ -61,8 +67,7 @@ actor LocalFilesProvider: ServerProvider {
 
     func fetchLibrary() async throws -> LibrarySnapshot {
         if resolvedFolderURL == nil { _ = try await authenticate() }
-        let files = try enumerateAudioFiles()
-        return try await buildSnapshot(from: files)
+        return try await librarySnapshot()
     }
 
     func syncDelta(since syncCursor: String?) async throws -> SyncDelta {
@@ -116,8 +121,7 @@ actor LocalFilesProvider: ServerProvider {
 
     func searchAll(query: String) async throws -> SearchResults {
         if resolvedFolderURL == nil { _ = try await authenticate() }
-        let allFiles = try enumerateAudioFiles()
-        let snapshot = try await buildSnapshot(from: allFiles)
+        let snapshot = try await librarySnapshot()
         let needle = query.lowercased()
         return SearchResults(
             artists: snapshot.artists.filter { $0.name.lowercased().contains(needle) },
@@ -151,7 +155,8 @@ actor LocalFilesProvider: ServerProvider {
     func radioTracks(seedTrackID: String, limit: Int) async throws -> [RemoteTrack] {
         // Pas de notion de « similarité » pour un dossier local : on alimente la radio avec des titres
         // au hasard de la bibliothèque (hors graine), ce qui reste utile pour une écoute en continu.
-        let snapshot = try await buildSnapshot(from: try enumerateAudioFiles())
+        if resolvedFolderURL == nil { _ = try await authenticate() }
+        let snapshot = try await librarySnapshot()
         return Array(snapshot.tracks.filter { $0.id != seedTrackID }.shuffled().prefix(limit))
     }
 
@@ -180,6 +185,21 @@ actor LocalFilesProvider: ServerProvider {
             results.append(LocalAudioFile(url: url, modificationDate: values.contentModificationDate))
         }
         return results
+    }
+
+    /// Bibliothèque complète, depuis le cache si l'ensemble des fichiers n'a pas changé (sinon rebâtie).
+    /// Le cache évite la relecture coûteuse des métadonnées à chaque recherche/radio.
+    private func librarySnapshot() async throws -> LibrarySnapshot {
+        let files = try enumerateAudioFiles()
+        let signature = Dictionary(files.map { ($0.url.path, $0.modificationDate ?? .distantPast) },
+                                   uniquingKeysWith: { a, _ in a })
+        if let cached = cachedSnapshot, cachedSignature == signature {
+            return cached
+        }
+        let built = try await buildSnapshot(from: files)
+        cachedSnapshot = built
+        cachedSignature = signature
+        return built
     }
 
     // MARK: - Construction de la bibliothèque à partir des fichiers + de leurs métadonnées
