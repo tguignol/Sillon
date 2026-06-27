@@ -121,7 +121,7 @@ final class DownloadManager {
     /// Supprime le fichier téléchargé d'un morceau (le repasse en "non téléchargé").
     func removeDownload(_ track: Track) {
         if let path = track.localFileURLString {
-            try? FileManager.default.removeItem(at: URL(fileURLWithPath: path))
+            try? FileManager.default.removeItem(at: DownloadFileLayout.resolve(storedPath: path))
         }
         if let record = existingTask(for: track.id) { context.delete(record) }
         track.downloadStatus = .notDownloaded
@@ -143,7 +143,8 @@ final class DownloadManager {
 
     private static func directLocalURL(_ track: Track) -> URL? {
         guard track.downloadStatus == .downloaded, let path = track.localFileURLString else { return nil }
-        let url = URL(fileURLWithPath: path)
+        // `resolve` rebranche un chemin absolu périmé (conteneur déplacé après MAJ iOS) sur la racine actuelle.
+        let url = DownloadFileLayout.resolve(storedPath: path)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 

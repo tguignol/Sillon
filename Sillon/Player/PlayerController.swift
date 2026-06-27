@@ -452,10 +452,13 @@ final class PlayerController {
 
     func seek(to seconds: TimeInterval) {
         guard let file = audioFile else { return }
+        // Borne la position dans [0, durée] : le slider l'envoie déjà bornée, mais la commande distante
+        // (Centre de contrôle / AirPods) pourrait demander une position hors plage → état incohérent.
+        let clamped = min(max(0, seconds), duration)
         if crossfadeGraphActive {
-            seekCrossfade(to: seconds, file: file)
+            seekCrossfade(to: clamped, file: file)
         } else {
-            seekGapless(to: seconds, file: file)
+            seekGapless(to: clamped, file: file)
         }
     }
 

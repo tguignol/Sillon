@@ -47,6 +47,19 @@ enum DownloadFileLayout {
             .appendingPathComponent("\(stem).\(ext)", isDirectory: false)
     }
 
+    /// Résout un chemin de fichier téléchargé MÉMORISÉ vers une URL valide sur la racine COURANTE.
+    /// Indispensable car le conteneur de l'app peut changer d'emplacement après une mise à jour /
+    /// réinstallation iOS : un chemin absolu mémorisé devient alors périmé (téléchargements « perdus »).
+    /// Si le chemin existe tel quel, on le garde ; sinon on reconstruit à partir du suffixe relatif
+    /// (« …/Downloads/<serveur>/<artiste>/<album>/<fichier> ») sur la racine actuelle.
+    static func resolve(storedPath: String) -> URL {
+        if FileManager.default.fileExists(atPath: storedPath) { return URL(fileURLWithPath: storedPath) }
+        if let range = storedPath.range(of: "/Downloads/") {
+            return baseDirectory.appendingPathComponent(String(storedPath[range.upperBound...]))
+        }
+        return URL(fileURLWithPath: storedPath)
+    }
+
     /// Nettoie un composant de chemin : remplace les caractères interdits, borne la longueur.
     static func sanitize(_ name: String) -> String {
         let invalid = CharacterSet(charactersIn: "/\\:*?\"<>|").union(.controlCharacters)

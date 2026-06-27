@@ -37,9 +37,12 @@ enum Palette {
     /// Dégradé de repli utilisé par les pochettes manquantes — garde l'esthétique "disquaire"
     /// même sans image distante (fichiers locaux, serveur sans cover art).
     static func placeholderGradient(seed: String) -> LinearGradient {
-        // Teinte déterministe dérivée du seed : deux albums distincts ont des nuances différentes,
-        // mais un même album garde toujours la même couleur d'un écran à l'autre.
-        let hue = Double(abs(seed.hashValue) % 360) / 360.0
+        // Teinte dérivée du seed : deux albums distincts ont des nuances différentes, et un même album
+        // garde TOUJOURS la même couleur — y compris d'un lancement à l'autre. On n'utilise donc PAS
+        // `hashValue` (randomisé par process → la couleur sautait à chaque relancement) mais un hash
+        // déterministe (djb2).
+        let stableHash = seed.unicodeScalars.reduce(UInt64(5381)) { ($0 &* 33) &+ UInt64($1.value) }
+        let hue = Double(stableHash % 360) / 360.0
         let base = Color(hue: hue, saturation: 0.28, brightness: 0.34)
         let dark = Color(hue: hue, saturation: 0.35, brightness: 0.18)
         return LinearGradient(colors: [base, dark], startPoint: .topLeading, endPoint: .bottomTrailing)
