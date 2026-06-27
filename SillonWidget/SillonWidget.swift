@@ -3,18 +3,17 @@
 //  SillonWidget
 //
 //  Widget « Lecture en cours » de Sillon — formats medium (pleine largeur, demi-hauteur) et grand.
-//  Phase 1 (cette version) : disposition fidèle aux maquettes, alimentée par des DONNÉES D'EXEMPLE.
-//  Phase 2 (à venir) : vraies données via App Group + boutons interactifs (`AudioPlaybackIntent`).
+//  Phase 2 : VRAIES données lues dans le conteneur partagé (App Group `group.kohlnet.Sillon`),
+//  alimenté par l'app (`NowPlayingWidgetBridge`). Progression vivante via `timerInterval` pendant la
+//  lecture. Les boutons interactifs (AudioPlaybackIntent) arrivent à l'étape suivante.
 //
 
 import WidgetKit
 import SwiftUI
 import UIKit
 
-// MARK: - Palette locale
+// MARK: - Palette locale (mêmes teintes que l'app)
 
-// Le widget est une cible séparée de l'app : on redéfinit ici les mêmes teintes (variantes clair/sombre
-// identiques à `Palette` côté app). À mutualiser plus tard si on partage le fichier de thème.
 private extension Color {
     init(hex: UInt32) {
         self.init(.sRGB,
@@ -44,44 +43,88 @@ private func mmss(_ seconds: Double) -> String {
     return "\(t / 60):" + String(format: "%02d", t % 60)
 }
 
+// MARK: - Lecture du conteneur partagé (App Group)
+
+private enum Shared {
+    static let appGroup = "group.kohlnet.Sillon"
+
+    static func cover() -> UIImage? {
+        guard let url = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
+            .appendingPathComponent("np-cover.dat"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return UIImage(data: data)
+    }
+}
+
 // MARK: - Donnée affichée
 
-/// Instantané de lecture rendu par le widget. Données d'exemple en phase 1 ; lues depuis le conteneur
-/// partagé (App Group) alimenté par l'app en phase 2.
 struct NowPlayingEntry: TimelineEntry {
     let date: Date
+    let isEmpty: Bool
     let title: String
     let artist: String
     let album: String
     let elapsed: Double
     let duration: Double
+    let anchor: Date          // instant où `elapsed` a été échantillonné par l'app
     let quality: String
     let isPlaying: Bool
     let isFavorite: Bool
+    let cover: UIImage?
 
     var fraction: Double { duration > 0 ? min(1, elapsed / duration) : 0 }
+    /// Bornes virtuelles pour une progression vivante (le morceau a « commencé » à `anchor - elapsed`).
+    var virtualStart: Date { anchor.addingTimeInterval(-elapsed) }
+    var virtualEnd: Date { virtualStart.addingTimeInterval(max(1, duration)) }
+    /// Vrai si on peut animer la progression côté widget sans rechargement (lecture en cours).
+    var liveProgress: Bool { isPlaying && duration > 1 }
 
     static let sample = NowPlayingEntry(
-        date: .now, title: "Come Back and Stay", artist: "Paul Young",
-        album: "From Time to Time", elapsed: 21, duration: 264,
-        quality: "FLAC · 44,1 kHz", isPlaying: false, isFavorite: true
-    )
+        date: .now, isEmpty: false, title: "Come Back and Stay", artist: "Paul Young",
+        album: "From Time to Time", elapsed: 21, duration: 264, anchor: .now,
+        quality: "FLAC · 44,1 kHz", isPlaying: true, isFavorite: true, cover: nil)
+
+    static let empty = NowPlayingEntry(
+        date: .now, isEmpty: true, title: "", artist: "", album: "", elapsed: 0, duration: 0,
+        anchor: .now, quality: "", isPlaying: false, isFavorite: false, cover: nil)
 }
 
 struct NowPlayingProvider: TimelineProvider {
     func placeholder(in context: Context) -> NowPlayingEntry { .sample }
-    func getSnapshot(in context: Context, completion: @escaping (NowPlayingEntry) -> Void) { completion(.sample) }
+
+    func getSnapshot(in context: Context, completion: @escaping (NowPlayingEntry) -> Void) {
+        completion(context.isPreview ? .sample : read())
+    }
+
     func getTimeline(in context: Context, completion: @escaping (Timeline<NowPlayingEntry>) -> Void) {
-        // Phase 1 : une seule entrée d'exemple. Phase 2 : lecture App Group + reload piloté par l'app.
-        completion(Timeline(entries: [.sample], policy: .never))
+        // Une entrée : l'app recharge le widget (`WidgetCenter`) à chaque changement d'état.
+        completion(Timeline(entries: [read()], policy: .never))
+    }
+
+    private func read() -> NowPlayingEntry {
+        guard let d = UserDefaults(suiteName: Shared.appGroup), d.bool(forKey: "np.has") else { return .empty }
+        return NowPlayingEntry(
+            date: .now, isEmpty: false,
+            title: d.string(forKey: "np.title") ?? "",
+            artist: d.string(forKey: "np.artist") ?? "",
+            album: d.string(forKey: "np.album") ?? "",
+            elapsed: d.double(forKey: "np.elapsed"),
+            duration: d.double(forKey: "np.duration"),
+            anchor: Date(timeIntervalSince1970: d.double(forKey: "np.anchor")),
+            quality: d.string(forKey: "np.quality") ?? "",
+            isPlaying: d.bool(forKey: "np.playing"),
+            isFavorite: d.bool(forKey: "np.favorite"),
+            cover: Shared.cover())
     }
 }
 
 // MARK: - Sous-vues
 
-/// Pochette entourée du spectre. Dans un widget le spectre est forcément statique (rendu décoratif).
+/// Pochette (réelle si partagée, sinon « vinyle » placeholder) entourée du spectre statique.
 private struct CoverSpectrum: View {
     var size: CGFloat
+    var cover: UIImage?
     var body: some View {
         ZStack {
             Canvas { ctx, sz in
@@ -100,26 +143,50 @@ private struct CoverSpectrum: View {
                                style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
                 }
             }
-            // Pochette « vinyle » (placeholder ; image réelle de l'album en phase 2).
-            Circle().fill(WPalette.pochette)
-                .overlay(Circle().fill(WPalette.pochette.opacity(0.55)).frame(width: size * 0.2, height: size * 0.2))
-                .overlay(Circle().fill(WPalette.fond).frame(width: size * 0.045, height: size * 0.045))
-                .padding(size * 0.15)
+            Group {
+                if let cover {
+                    Image(uiImage: cover).resizable().scaledToFill()
+                } else {
+                    Circle().fill(WPalette.pochette)
+                        .overlay(Circle().fill(WPalette.pochette.opacity(0.55)).frame(width: size * 0.14, height: size * 0.14))
+                        .overlay(Circle().fill(WPalette.fond).frame(width: size * 0.03, height: size * 0.03))
+                }
+            }
+            .frame(width: size * 0.7, height: size * 0.7)
+            .clipShape(Circle())
         }
         .frame(width: size, height: size)
     }
 }
 
-private struct ProgressLine: View {
-    var fraction: Double
+/// Barre de progression : vivante (timerInterval) en lecture, statique sinon.
+private struct PlaybackProgress: View {
+    let entry: NowPlayingEntry
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(WPalette.piste)
-                Capsule().fill(WPalette.cuivre).frame(width: max(6, geo.size.width * fraction))
+        Group {
+            if entry.liveProgress {
+                ProgressView(timerInterval: entry.virtualStart...entry.virtualEnd, countsDown: false) {
+                    EmptyView()
+                } currentValueLabel: { EmptyView() }
+            } else {
+                ProgressView(value: entry.fraction)
             }
         }
-        .frame(height: 4)
+        .progressViewStyle(.linear)
+        .tint(WPalette.cuivre)
+    }
+}
+
+/// Temps écoulé : compte en direct pendant la lecture.
+private struct ElapsedLabel: View {
+    let entry: NowPlayingEntry
+    var body: some View {
+        if entry.liveProgress {
+            Text(timerInterval: entry.virtualStart...entry.virtualEnd, countsDown: false)
+                .monospacedDigit()
+        } else {
+            Text(mmss(entry.elapsed))
+        }
     }
 }
 
@@ -142,21 +209,34 @@ private struct TransportTrio: View {
     }
 }
 
-// MARK: - Format medium (pleine largeur, demi-hauteur)
+// MARK: - États vides
+
+private struct EmptyStateView: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "opticaldisc").font(.system(size: 26)).foregroundStyle(WPalette.cuivre)
+            Text("Rien en lecture").font(.system(size: 14, weight: .medium)).foregroundStyle(WPalette.texte)
+            Text("Sillon").font(.system(size: 12, design: .serif)).foregroundStyle(WPalette.sourdine)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Format medium
 
 private struct MediumView: View {
     let entry: NowPlayingEntry
     var body: some View {
         HStack(spacing: 14) {
-            CoverSpectrum(size: 104)
+            CoverSpectrum(size: 104, cover: entry.cover)
             VStack(alignment: .leading, spacing: 0) {
                 Text(entry.title).font(.system(size: 16, design: .serif)).foregroundStyle(WPalette.texte).lineLimit(1)
                 Text(entry.artist).font(.system(size: 12, weight: .medium)).foregroundStyle(WPalette.sourdine).lineLimit(1)
-                ProgressLine(fraction: entry.fraction).padding(.top, 10)
+                PlaybackProgress(entry: entry).padding(.top, 10)
                 HStack {
-                    Text(mmss(entry.elapsed)).foregroundStyle(WPalette.sourdine)
+                    ElapsedLabel(entry: entry).foregroundStyle(WPalette.sourdine)
                     Spacer()
-                    Text(entry.quality).foregroundStyle(WPalette.teal)
+                    Text(entry.quality).foregroundStyle(WPalette.teal).lineLimit(1)
                     Spacer()
                     Text(mmss(entry.duration)).foregroundStyle(WPalette.sourdine)
                 }
@@ -186,7 +266,7 @@ private struct LargeView: View {
                 Text("Sillon").font(.system(size: 11, design: .serif)).foregroundStyle(WPalette.sourdine)
             }
             HStack(spacing: 14) {
-                CoverSpectrum(size: 96)
+                CoverSpectrum(size: 96, cover: entry.cover)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(entry.title).font(.system(size: 17, design: .serif)).foregroundStyle(WPalette.texte).lineLimit(2)
                     Text(entry.artist).font(.system(size: 13, weight: .medium)).foregroundStyle(WPalette.sourdine).lineLimit(1)
@@ -195,9 +275,9 @@ private struct LargeView: View {
                 Spacer(minLength: 0)
             }
             .padding(.top, 12)
-            ProgressLine(fraction: entry.fraction).padding(.top, 14)
+            PlaybackProgress(entry: entry).padding(.top, 14)
             HStack {
-                Text(mmss(entry.elapsed)); Spacer(); Text(mmss(entry.duration))
+                ElapsedLabel(entry: entry); Spacer(); Text(mmss(entry.duration))
             }
             .font(.system(size: 11, design: .monospaced)).foregroundStyle(WPalette.sourdine).padding(.top, 5)
             Text(entry.quality).font(.system(size: 11, design: .monospaced)).foregroundStyle(WPalette.teal).padding(.top, 3)
@@ -222,9 +302,12 @@ struct SillonWidgetEntryView: View {
 
     var body: some View {
         Group {
-            switch family {
-            case .systemLarge: LargeView(entry: entry)
-            default: MediumView(entry: entry)
+            if entry.isEmpty {
+                EmptyStateView()
+            } else if family == .systemLarge {
+                LargeView(entry: entry)
+            } else {
+                MediumView(entry: entry)
             }
         }
         .containerBackground(WPalette.fond, for: .widget)

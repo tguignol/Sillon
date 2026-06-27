@@ -1182,6 +1182,8 @@ final class PlayerController {
     private func updateNowPlayingInfo() {
         guard let track = currentTrack else {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            NowPlayingWidgetBridge.publish(title: nil, artist: "", album: "", quality: "",
+                                           isFavorite: false, isPlaying: false, elapsed: 0, duration: 0)
             return
         }
         var info: [String: Any] = [
@@ -1200,11 +1202,22 @@ final class PlayerController {
             info[MPMediaItemPropertyArtwork] = currentArtwork
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        NowPlayingWidgetBridge.publish(
+            title: track.title,
+            artist: track.artistNameSnapshot ?? track.album?.artist?.name ?? "",
+            album: track.album?.title ?? "",
+            quality: currentQualityBadge ?? "",
+            isFavorite: track.isFavorite,
+            isPlaying: isPlaying,
+            elapsed: currentTime,
+            duration: duration
+        )
     }
 
     /// Charge la pochette pour l'écran verrouillé (best-effort, asynchrone).
     private func loadArtwork(for track: Track) async {
         currentArtwork = nil
+        NowPlayingWidgetBridge.clearCover()   // évite une pochette périmée dans le widget le temps du chargement
         let token = UUID()
         artworkToken = token
         guard let server = track.server, let path = track.album?.coverArtRemotePath else { return }
@@ -1216,6 +1229,7 @@ final class PlayerController {
             #if os(iOS)
             if let image = UIImage(data: data) {
                 currentArtwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                NowPlayingWidgetBridge.writeCover(data)
                 updateNowPlayingInfo()
             }
             #elseif os(macOS)
