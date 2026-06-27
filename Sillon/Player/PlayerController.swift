@@ -412,7 +412,7 @@ final class PlayerController {
         sleepFadeTimer?.invalidate(); sleepFadeTimer = nil
         sleepTimerEndDate = Date().addingTimeInterval(seconds)
         let timer = Timer(timeInterval: seconds, repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.sleepTimerFired() }
+            MainActor.assumeIsolated { self?.sleepTimerFired() }
         }
         RunLoop.main.add(timer, forMode: .common)
         sleepTimer = timer
@@ -433,7 +433,7 @@ final class PlayerController {
         var step = 0
         sleepFadeTimer?.invalidate()
         let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] t in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 guard let self else { t.invalidate(); return }
                 step += 1
                 let progress = Float(step) / Float(steps)
@@ -479,7 +479,8 @@ final class PlayerController {
         let index = currentIndex
         player.scheduleSegment(file, startingFrame: frame, frameCount: AVAudioFrameCount(remaining), at: nil,
                                completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+            guard let self else { return }
+            Task { @MainActor in self.handleTrackEnded(index: index, generation: generation) }
         }
         currentTime = seconds
         if wasPlaying {
@@ -509,7 +510,8 @@ final class PlayerController {
         let index = currentIndex
         deck.player.scheduleSegment(file, startingFrame: frame, frameCount: AVAudioFrameCount(remaining), at: nil,
                                     completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+            guard let self else { return }
+            Task { @MainActor in self.handleTrackEnded(index: index, generation: generation) }
         }
         currentTime = seconds
         if wasPlaying {
@@ -623,7 +625,8 @@ final class PlayerController {
         let generation = scheduleGeneration
         let index = currentIndex
         player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+            guard let self else { return }
+            Task { @MainActor in self.handleTrackEnded(index: index, generation: generation) }
         }
         if autoplay {
             player.play()
@@ -673,7 +676,8 @@ final class PlayerController {
         let generation = scheduleGeneration
         let index = currentIndex
         deck.player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleTrackEnded(index: index, generation: generation) }
+            guard let self else { return }
+            Task { @MainActor in self.handleTrackEnded(index: index, generation: generation) }
         }
         if autoplay {
             deck.player.play()
@@ -845,7 +849,7 @@ final class PlayerController {
             routeObserver = NotificationCenter.default.addObserver(
                 forName: AVAudioSession.routeChangeNotification, object: session, queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in self?.refreshAudioOutput() }
+                MainActor.assumeIsolated { self?.refreshAudioOutput() }
             }
         }
         refreshAudioOutput()
@@ -924,7 +928,8 @@ final class PlayerController {
               file.processingFormat.sampleRate == sampleRate else { return }
 
         player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleTrackEnded(index: nextIndex, generation: generation) }
+            guard let self else { return }
+            Task { @MainActor in self.handleTrackEnded(index: nextIndex, generation: generation) }
         }
         nextFile = file
         nextPreparedIndex = nextIndex
@@ -993,7 +998,7 @@ final class PlayerController {
     private func startFadeRamp() {
         fadeRampTimer?.invalidate()
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.updateFadeRamp() }
+            MainActor.assumeIsolated { self?.updateFadeRamp() }
         }
         RunLoop.main.add(timer, forMode: .common)
         fadeRampTimer = timer
@@ -1070,7 +1075,8 @@ final class PlayerController {
         deck.player.volume = factor
         deck.fadeMixer.outputVolume = 0   // muet jusqu'au début du fondu
         deck.player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.handleTrackEnded(index: nextIndex, generation: generation) }
+            guard let self else { return }
+            Task { @MainActor in self.handleTrackEnded(index: nextIndex, generation: generation) }
         }
         // On ne play() pas encore : beginCrossfade démarrera ce deck au bon moment.
     }
@@ -1113,7 +1119,7 @@ final class PlayerController {
     private func startTicker() {
         stopTicker()
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
+            MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer

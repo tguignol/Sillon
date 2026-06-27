@@ -238,7 +238,7 @@ actor JellyfinProvider: ServerProvider {
         guard let url = components.url else { throw ProviderError.invalidURL }
         var request = URLRequest(url: url)
         request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
-        let (data, response) = try await performValidated(request)
+        let (data, _) = try await performValidated(request)
         let decoded = try JSONDecoder().decode(JellyfinItemsResponse.self, from: data)
         return decoded.Items.map(Self.makeRemoteTrack)
     }
@@ -293,7 +293,7 @@ actor JellyfinProvider: ServerProvider {
             var request = URLRequest(url: url)
             request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
 
-            let (data, response) = try await performValidated(request)
+            let (data, _) = try await performValidated(request)
 
             let page: JellyfinItemsResponse
             do {
@@ -324,7 +324,7 @@ actor JellyfinProvider: ServerProvider {
         var request = URLRequest(url: url)
         request.setValue(authorizationHeaderValue(includingToken: true), forHTTPHeaderField: "X-Emby-Authorization")
 
-        let (data, response) = try await performValidated(request)
+        let (data, _) = try await performValidated(request)
         let decoded = try JSONDecoder().decode(JellyfinItemsResponse.self, from: data)
         return decoded.Items.map(\.Id)
     }

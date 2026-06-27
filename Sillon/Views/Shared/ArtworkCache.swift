@@ -17,10 +17,13 @@ actor ArtworkCache {
     private let fileManager = FileManager.default
 
     init() {
-        let caches = (try? fileManager.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? fileManager.temporaryDirectory
+        // `FileManager.default` en local : ne pas référencer la propriété isolée `fileManager` depuis
+        // cet init non isolé (interdit en mode Swift 6). La propriété reste pour les méthodes isolées.
+        let fm = FileManager.default
+        let caches = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? fm.temporaryDirectory
         directory = caches.appendingPathComponent("Artwork", isDirectory: true)
-        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
     /// Nom de fichier déterministe et sûr (SHA-256 de « serveur|chemin »).
