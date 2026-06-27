@@ -55,6 +55,9 @@ enum Typo {
     /// Titres d'album, nom d'artiste en grand. Empattement système, sans dépendance externe.
     static let display = Font.system(.title, design: .serif)
     static let displaySmall = Font.system(.title3, design: .serif).weight(.medium)
+    /// Ligne de paroles EN COURS de lecture : un cran plus grande que `displaySmall` pour ressortir
+    /// (façon Apple Music). Les autres lignes restent en `corps`.
+    static let paroleActive = Font.system(.title2, design: .serif).weight(.semibold)
     /// Corps / UI : SF Pro neutre.
     static let corps = Font.system(.body, design: .default)
     /// Donnée technique (bitrate, codec, dB, horodatage de sync) : signale visuellement

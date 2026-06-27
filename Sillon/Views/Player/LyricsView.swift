@@ -222,7 +222,7 @@ private struct SyncedLyricsView: View {
     private func lineView(line: LyricLine, isActive: Bool, translated: String?) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(line.text.isEmpty ? "♪" : line.text)
-                .font(isActive ? Typo.displaySmall : Typo.corps)
+                .font(isActive ? Typo.paroleActive : Typo.corps)
                 .foregroundStyle(isActive ? Palette.accentCuivre : Palette.texteSourdine)
                 .scaleEffect(isActive ? 1.0 : 0.98, anchor: .leading)
             if let translated, !translated.isEmpty {
