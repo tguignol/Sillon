@@ -25,17 +25,22 @@ enum ReplayGain {
         preampDB: Double,
         clipProtection: Bool
     ) -> Float {
+        // Gain ET peak proviennent du MÊME niveau (album / relation album / piste) : sinon l'anti-clipping
+        // bornerait un gain avec un peak qui ne lui correspond pas (sur/sous-protection). On prend le
+        // premier niveau qui a un gain et SON peak associé ; le repli `fallbackGain` n'a pas de peak.
         let gainDB: Double?
         let peak: Double?
         switch mode {
         case .off:
             return 1.0
         case .album:
-            gainDB = albumGain ?? albumRelGain ?? trackGain ?? fallbackGain
-            peak   = albumPeak ?? albumRelPeak ?? trackPeak
+            if let g = albumGain { gainDB = g; peak = albumPeak }
+            else if let g = albumRelGain { gainDB = g; peak = albumRelPeak }
+            else if let g = trackGain { gainDB = g; peak = trackPeak }
+            else { gainDB = fallbackGain; peak = nil }
         case .track:
-            gainDB = trackGain ?? fallbackGain
-            peak   = trackPeak
+            if let g = trackGain { gainDB = g; peak = trackPeak }
+            else { gainDB = fallbackGain; peak = nil }
         }
         guard let baseDB = gainDB else { return 1.0 }   // gain manquant => 0 dB (facteur neutre)
 

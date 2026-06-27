@@ -35,7 +35,10 @@ final class ArtworkLoader {
             let (data, _) = try await URLSession.shared.data(from: remote)
             return await ArtworkCache.shared.store(data, serverID: server.id, path: path)
         } catch {
-            return remote   // repli : laisser AsyncImage retenter le réseau
+            // PAS de repli vers l'URL distante : elle porte les identifiants (api_key Jellyfin, jeton+sel
+            // Subsonic) qui finiraient dans le cache disque d'URLSession. On renvoie nil → l'UI affiche son
+            // placeholder, nouvelle tentative au prochain affichage (chemin cache-first).
+            return nil
         }
     }
 
