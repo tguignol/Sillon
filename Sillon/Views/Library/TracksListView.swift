@@ -19,13 +19,16 @@ struct TracksListView: View {
             if visible.isEmpty {
                 LibraryEmptyState(title: "Aucun titre", systemImage: "music.note")
             } else {
-                List(Array(visible.enumerated()), id: \.element.id) { index, track in
-                    TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
-                        .contentShape(Rectangle())
-                        .onTapGesture { playerController?.play(queue: visible, startAt: index) }
-                        .trackContextMenu(track: track, context: context)
+                AZIndexedContainer(ids: visible.map(\.id),
+                                   letters: visible.map { azIndexLetter($0.title) }) {
+                    List(Array(visible.enumerated()), id: \.element.id) { index, track in
+                        TrackRowView(track: track, showsTrackNumber: false, showsArtwork: true)
+                            .contentShape(Rectangle())
+                            .onTapGesture { playerController?.play(queue: visible, startAt: index) }
+                            .trackContextMenu(track: track, context: context)
+                    }
+                    .listStyle(.plain)
                 }
-                .listStyle(.plain)
             }
         }
     }

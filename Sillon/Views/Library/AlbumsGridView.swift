@@ -21,6 +21,9 @@ enum AlbumSortOrder: String, CaseIterable, Identifiable {
         case .recent:  "clock"
         }
     }
+    /// Tri alphabétique → l'index A–Z a du sens (titre ou artiste) ; pas pour année/ajout récent.
+    var isAlphabetical: Bool { self == .titre || self == .artiste }
+
     var descriptors: [SortDescriptor<Album>] {
         switch self {
         case .titre:   [SortDescriptor(\.title)]
@@ -50,9 +53,24 @@ struct AlbumsGridView: View {
     /// ses carrousels). Évite un doublon de destination du même type dans une même pile.
     var providesNavigationDestination = true
 
+    /// Conservés pour piloter l'index alphabétique (lettre selon le critère, sens du tri).
+    private let sort: AlbumSortOrder
+    private let descending: Bool
+
     init(sort: AlbumSortOrder = .titre, descending: Bool = false, providesNavigationDestination: Bool = true) {
         _albums = Query(sort: sort.descriptors(descending: descending))
+        self.sort = sort
+        self.descending = descending
         self.providesNavigationDestination = providesNavigationDestination
+    }
+
+    /// Libellé servant de clé d'index, aligné sur le critère de tri courant.
+    private func indexLabel(_ album: Album) -> String {
+        switch sort {
+        case .titre:          album.title
+        case .artiste:        album.artistNameSnapshot ?? album.artist?.name ?? album.title
+        case .annee, .recent: album.title   // index masqué dans ces cas
+        }
     }
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.l)]
@@ -74,16 +92,24 @@ struct AlbumsGridView: View {
         if visibleAlbums.isEmpty {
             LibraryEmptyState(title: "Aucun album", systemImage: "square.stack")
         } else {
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: Spacing.xl) {
-                    ForEach(visibleAlbums, id: \.album.id) { entry in
-                        NavigationLink(value: entry.album) {
-                            AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
+            let entries = visibleAlbums
+            AZIndexedContainer(ids: entries.map(\.album.id),
+                               letters: entries.map { azIndexLetter(indexLabel($0.album)) },
+                               ascending: !descending,
+                               showsIndex: sort.isAlphabetical) {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: Spacing.xl) {
+                        ForEach(entries, id: \.album.id) { entry in
+                            NavigationLink(value: entry.album) {
+                                AlbumCard(album: entry.album, sourceCount: entry.sourceCount)
+                            }
+                            .buttonStyle(.plain)
+                            .id(entry.album.id)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .scrollTargetLayout()
+                    .padding(Spacing.l)
                 }
-                .padding(Spacing.l)
             }
         }
     }

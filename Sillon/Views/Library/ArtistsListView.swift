@@ -26,12 +26,16 @@ struct ArtistsListView: View {
         if visibleArtists.isEmpty {
             LibraryEmptyState(title: "Aucun artiste", systemImage: "music.mic")
         } else {
-            List(visibleArtists) { artist in
-                NavigationLink(value: artist) {
-                    ArtistRow(artist: artist)
+            // Lettre d'index = clé de tri (`sortName`), pour rester aligné sur l'ordre d'affichage.
+            AZIndexedContainer(ids: visibleArtists.map(\.id),
+                               letters: visibleArtists.map { azIndexLetter($0.sortName) }) {
+                List(visibleArtists) { artist in
+                    NavigationLink(value: artist) {
+                        ArtistRow(artist: artist)
+                    }
                 }
+                .listStyle(.plain)
             }
-            .listStyle(.plain)
         }
     }
 }
