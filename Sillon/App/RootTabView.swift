@@ -88,7 +88,7 @@ private struct NowPlayingAccessory: ViewModifier {
 
     func body(content: Content) -> some View {
         if show {
-            content.tabViewBottomAccessory { NowPlayingBar(forceCompact: true, onTap: onTap) }
+            content.tabViewBottomAccessory { NowPlayingBar(onTap: onTap) }
         } else {
             content
         }

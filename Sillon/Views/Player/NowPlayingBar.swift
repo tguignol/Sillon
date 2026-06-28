@@ -7,28 +7,13 @@ import SwiftUI
 /// Tapé (hors boutons), il ouvre le lecteur plein écran.
 struct NowPlayingBar: View {
     @Environment(\.playerController) private var player
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    #endif
-    /// Force la version compacte (utile dans le slot natif `tabViewBottomAccessory`, toujours étroit).
-    var forceCompact: Bool = false
     var onTap: () -> Void
 
     var body: some View {
         if let player, let track = player.currentTrack {
-            Group {
-                #if os(iOS)
-                if !forceCompact && sizeClass == .regular {
-                    richBar(player: player, track: track)
-                } else {
-                    compactBar(player: player, track: track)
-                }
-                #else
-                richBar(player: player, track: track)   // macOS : toujours la version riche
-                #endif
-            }
-            .contentShape(Rectangle())
-            .onTapGesture { onTap() }
+            richBar(player: player, track: track)
+                .contentShape(Rectangle())
+                .onTapGesture { onTap() }
         }
     }
 
@@ -72,35 +57,6 @@ struct NowPlayingBar: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, Spacing.s)
-    }
-
-    private func compactBar(player: PlayerController, track: Track) -> some View {
-        HStack(spacing: Spacing.m) {
-            cover(track, size: 36)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(track.title)
-                    .font(.subheadline).foregroundStyle(Palette.texteIvoire).lineLimit(1)
-                Text(subtitle(track))
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-
-            Spacer(minLength: Spacing.s)
-
-            Button { player.next() } label: {
-                Image(systemName: "forward.fill").font(.title3).foregroundStyle(Palette.texteIvoire)
-                    .contentShape(Rectangle()).frame(width: 32, height: 36)
-            }
-            .buttonStyle(.plain)
-            Button { player.togglePlayPause() } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title3).foregroundStyle(Palette.texteIvoire)
-                    .contentShape(Rectangle()).frame(width: 36, height: 36)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, Spacing.m)
-        .frame(maxWidth: .infinity)
     }
 
     private func cover(_ track: Track, size: CGFloat) -> some View {
