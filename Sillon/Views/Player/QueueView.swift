@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Panneau du lecteur : bascule entre les TITRES DE L'ALBUM du morceau courant (par défaut) et la
-/// FILE D'ATTENTE de lecture. File : morceau en cours mis en évidence, saut direct (tap) et
-/// réordonnancement par glisser-déposer. Album : titres de l'album en ordre de piste (tap = lecture).
-struct QueueView: View {
+/// Panneau réutilisable : bascule entre les TITRES DE L'ALBUM du morceau courant (par défaut) et la
+/// FILE D'ATTENTE de lecture. Tap = saut (file) / lecture de l'album (album). Utilisé en feuille
+/// (iPhone/portrait) et en colonne du lecteur paysage (iPad), façon Android.
+struct QueuePanel: View {
     @Environment(\.playerController) private var player
-    @Environment(\.dismiss) private var dismiss
+    /// Appelé après un saut dans la file (ex. fermer la feuille en portrait) ; nil en colonne inline.
+    var onJump: (() -> Void)? = nil
 
     private enum Mode: Hashable { case album, queue }
     @State private var mode: Mode = .album
@@ -20,36 +21,21 @@ struct QueueView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                Picker("", selection: $mode) {
-                    Text(LanguageManager.string("Album")).tag(Mode.album)
-                    Text(LanguageManager.string("File d'attente")).tag(Mode.queue)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, Spacing.l)
-                .padding(.top, Spacing.s)
+        VStack(spacing: 0) {
+            Picker("", selection: $mode) {
+                Text(LanguageManager.string("Album")).tag(Mode.album)
+                Text(LanguageManager.string("File d'attente")).tag(Mode.queue)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.s)
 
-                Group {
-                    switch mode {
-                    case .album: albumList
-                    case .queue: queueList
-                    }
+            Group {
+                switch mode {
+                case .album: albumList
+                case .queue: queueList
                 }
             }
-            .navigationTitle(LanguageManager.string(mode == .album ? "Album" : "File d'attente"))
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("OK") { dismiss() } }
-                #if os(iOS)
-                if mode == .queue {
-                    ToolbarItem(placement: .topBarLeading) { EditButton() }
-                }
-                #endif
-            }
-            .background(Palette.fondNoir)
         }
     }
 
@@ -70,16 +56,15 @@ struct QueueView: View {
         }
     }
 
-    /// File d'attente de lecture (saut direct + réordonnancement).
+    /// File d'attente de lecture (tap = saut).
     @ViewBuilder private var queueList: some View {
         if let player, !player.queue.isEmpty {
             List {
                 ForEach(Array(player.queue.enumerated()), id: \.element.id) { index, track in
                     row(track: track, isCurrent: index == player.currentIndex)
                         .contentShape(Rectangle())
-                        .onTapGesture { player.jump(to: index); dismiss() }
+                        .onTapGesture { player.jump(to: index); onJump?() }
                 }
-                .onMove { source, destination in player.moveQueue(from: source, to: destination) }
             }
             .listStyle(.plain)
         } else {
@@ -116,5 +101,24 @@ struct QueueView: View {
                 .font(Typo.technique).foregroundStyle(.secondary).monospacedDigit()
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Feuille « file d'attente » (iPhone / portrait) : enveloppe [QueuePanel] dans un NavigationStack.
+struct QueueView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            QueuePanel(onJump: { dismiss() })
+                .navigationTitle(LanguageManager.string("Lecture"))
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) { Button("OK") { dismiss() } }
+                }
+                .background(Palette.fondNoir)
+        }
     }
 }

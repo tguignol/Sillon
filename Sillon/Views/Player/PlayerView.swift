@@ -66,13 +66,14 @@ struct PlayerView: View {
                     mainVisual(track: track, player: player, maxSide: coverMax, landscape: true)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: Spacing.l) {
-                        Spacer(minLength: 0)
                         titles(track: track)
                         progressSection(player: player)
                         transport(player: player)
                         volumeSection(player: player)
-                        bottomRow(track: track, player: player)
-                        Spacer(minLength: 0)
+                        bottomRow(track: track, player: player, landscape: true)
+                        // Panneau persistant (façon Android) : titres de l'album / file d'attente.
+                        QueuePanel()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(maxWidth: controlsMax)   // largeur lisible (barres non étirées)
                     .frame(maxWidth: .infinity)     // …centrée dans sa moitié
@@ -298,7 +299,7 @@ struct PlayerView: View {
         }
     }
 
-    private func bottomRow(track: Track, player: PlayerController) -> some View {
+    private func bottomRow(track: Track, player: PlayerController, landscape: Bool = false) -> some View {
         // Un Spacer entre chaque icône → répartition régulière sur toute la largeur.
         HStack(spacing: 0) {
             Button { player.toggleFavoriteOfCurrent() } label: {
@@ -320,9 +321,12 @@ struct PlayerView: View {
                 Image(systemName: "quote.bubble")
                     .foregroundStyle(showLyrics ? Palette.accentCuivre : Palette.texteIvoire)
             }
-            Spacer()
-            Button { showQueue = true } label: {
-                Image(systemName: "list.bullet").foregroundStyle(Palette.texteIvoire)
+            // En paysage le panneau Album/File est déjà visible en permanence à droite → bouton inutile.
+            if !landscape {
+                Spacer()
+                Button { showQueue = true } label: {
+                    Image(systemName: "list.bullet").foregroundStyle(Palette.texteIvoire)
+                }
             }
             #if os(iOS)
             Spacer()
