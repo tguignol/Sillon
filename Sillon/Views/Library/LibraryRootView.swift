@@ -18,6 +18,7 @@ struct LibraryRootView: View {
     @State private var section: Section = .albums
     @State private var searchText = ""
     @State private var albumSort: AlbumSortOrder = .titre
+    @State private var sortDescending = false   // bascule A→Z / Z→A (façon Android)
 
     private var isSearching: Bool {
         !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -69,6 +70,12 @@ struct LibraryRootView: View {
                     Label(order.label, systemImage: order.systemImage).tag(order)
                 }
             }
+            Divider()
+            // Sens du tri (A→Z / Z→A), façon Android.
+            Picker("Sens", selection: $sortDescending) {
+                Label("A → Z", systemImage: "arrow.down").tag(false)
+                Label("Z → A", systemImage: "arrow.up").tag(true)
+            }
         } label: {
             Image(systemName: "arrow.up.arrow.down")
         }
@@ -77,7 +84,7 @@ struct LibraryRootView: View {
     @ViewBuilder private var content: some View {
         switch section {
         case .artistes: ArtistsListView()
-        case .albums: AlbumsGridView(sort: albumSort)
+        case .albums: AlbumsGridView(sort: albumSort, descending: sortDescending)
         case .titres: TracksListView()
         case .playlists: PlaylistsListView()
         case .ajoutRecent: RecentAdditionsView()

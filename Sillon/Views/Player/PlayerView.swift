@@ -222,13 +222,7 @@ struct PlayerView: View {
             Text(track.artistNameSnapshot ?? track.album?.artist?.name ?? "Artiste inconnu")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            if let albumTitle = track.album?.title, !albumTitle.isEmpty {
-                Text(albumTitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(1)
-            }
+            // (L'album n'est plus répété ici : il figure déjà au-dessus des titres de l'album, façon Android.)
         }
     }
 

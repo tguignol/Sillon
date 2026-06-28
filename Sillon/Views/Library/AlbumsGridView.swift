@@ -29,6 +29,16 @@ enum AlbumSortOrder: String, CaseIterable, Identifiable {
         case .recent:  [SortDescriptor(\.dateAdded, order: .reverse), SortDescriptor(\.title)]
         }
     }
+
+    /// Descripteurs avec sens INVERSÉ (bascule A→Z / Z→A, façon Android) : inverse l'ordre de chaque clé.
+    func descriptors(descending: Bool) -> [SortDescriptor<Album>] {
+        guard descending else { return descriptors }
+        return descriptors.map {
+            var d = $0
+            d.order = (d.order == .forward) ? .reverse : .forward
+            return d
+        }
+    }
 }
 
 /// Grille des albums (tri configurable). Mène au détail d'album (liste des morceaux).
@@ -40,8 +50,8 @@ struct AlbumsGridView: View {
     /// ses carrousels). Évite un doublon de destination du même type dans une même pile.
     var providesNavigationDestination = true
 
-    init(sort: AlbumSortOrder = .titre, providesNavigationDestination: Bool = true) {
-        _albums = Query(sort: sort.descriptors)
+    init(sort: AlbumSortOrder = .titre, descending: Bool = false, providesNavigationDestination: Bool = true) {
+        _albums = Query(sort: sort.descriptors(descending: descending))
         self.providesNavigationDestination = providesNavigationDestination
     }
 
