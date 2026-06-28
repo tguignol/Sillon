@@ -15,41 +15,37 @@ struct SidebarRootView: View {
     private var hasNowPlaying: Bool { player?.currentTrack != nil }
 
     var body: some View {
-        ZStack {
-            NavigationSplitView {
-                List(selection: $selection) {
-                    ForEach(SidebarSection.allCases) { section in
-                        Label(section.label, systemImage: section.systemImage)
-                            .tag(section)
-                    }
-                }
-                .navigationSplitViewColumnWidth(min: 172, ideal: 196, max: 240)
-            } detail: {
-                detailArea
-                    .animation(.easeInOut(duration: 0.2), value: showPlayer)
-            }
-            // Mini-lecteur ancré au bas de TOUTE la fenêtre (au niveau du split, pas de la section) →
-            // TOUJOURS visible : accueil, bibliothèque ET détail d'album (façon Android, comme en portrait).
-            .safeAreaInset(edge: .bottom) {
-                if hasNowPlaying && !showPlayer {
-                    NowPlayingBar(onTap: { showPlayer = true })
-                        .padding(.vertical, Spacing.s)
-                        .padding(.horizontal, Spacing.m)
-                        .background(.thinMaterial)
+        NavigationSplitView {
+            List(selection: $selection) {
+                ForEach(SidebarSection.allCases) { section in
+                    Label(section.label, systemImage: section.systemImage)
+                        .tag(section)
                 }
             }
-
-            #if os(iOS)
-            // iPad : lecteur en SURIMPRESSION plein écran (façon Android), AU-DESSUS de la barre latérale
-            // et de la section courante (bibliothèque, détail d'album…). Glisse depuis le bas.
-            if showPlayer, hasNowPlaying {
-                PlayerView(onClose: { showPlayer = false })
-                    .transition(.move(edge: .bottom))
-                    .zIndex(2)
-            }
-            #endif
+            .navigationSplitViewColumnWidth(min: 172, ideal: 196, max: 240)
+        } detail: {
+            detailArea
+                .animation(.easeInOut(duration: 0.2), value: showPlayer)
         }
-        .animation(.easeInOut(duration: 0.25), value: showPlayer)
+        // Mini-lecteur ancré au bas de TOUTE la fenêtre (au niveau du split, pas de la section) →
+        // TOUJOURS visible : accueil, bibliothèque ET détail d'album (façon Android, comme en portrait).
+        .safeAreaInset(edge: .bottom) {
+            if hasNowPlaying && !showPlayer {
+                NowPlayingBar(onTap: { showPlayer = true })
+                    .padding(.vertical, Spacing.s)
+                    .padding(.horizontal, Spacing.m)
+                    .background(.thinMaterial)
+            }
+        }
+        #if os(iOS)
+        // iPad : lecteur plein écran présenté en MODAL (`fullScreenCover`), exactement comme en portrait
+        // (cf. RootTabView). Indispensable : une simple surimpression ZStack empêchait les UI système
+        // (ex. téléchargement du modèle de langue pour la TRADUCTION des paroles) de s'afficher → la
+        // traduction ne marchait pas en paysage. Le modal glisse depuis le bas (même rendu).
+        .fullScreenCover(isPresented: $showPlayer) {
+            if hasNowPlaying { PlayerView() }
+        }
+        #endif
         // Choisir une section dans la barre latérale referme le lecteur et montre cette section.
         .onChange(of: selection) { _, _ in showPlayer = false }
     }
