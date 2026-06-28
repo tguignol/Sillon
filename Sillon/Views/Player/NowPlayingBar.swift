@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Mini-lecteur (façon Android). ADAPTATIF :
 /// - **large** (iPad paysage / Mac) : pochette + cœur + titre/artiste·album + barre de progression fine
@@ -17,6 +20,15 @@ struct NowPlayingBar: View {
         }
     }
 
+    /// Timeline affichée sur iPad / Mac, masquée sur iPhone (mini-lecteur épuré).
+    private var showTimeline: Bool {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom != .phone
+        #else
+        return true
+        #endif
+    }
+
     private func richBar(player: PlayerController, track: Track) -> some View {
         HStack(spacing: Spacing.m) {
             cover(track, size: 48)
@@ -32,12 +44,15 @@ struct NowPlayingBar: View {
                     .font(.subheadline).foregroundStyle(Palette.texteIvoire).lineLimit(1)
                 Text(subtitle(track))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                HStack(spacing: Spacing.s) {
-                    Text(player.currentTime.asTrackDuration)
-                        .font(Typo.technique).foregroundStyle(.secondary).monospacedDigit()
-                    MiniScrubber(current: player.currentTime, duration: player.duration) { player.seek(to: $0) }
-                    Text("-" + max(player.duration - player.currentTime, 0).asTrackDuration)
-                        .font(Typo.technique).foregroundStyle(.secondary).monospacedDigit()
+                // Pas de timeline sur iPhone (mini-lecteur épuré) ; conservée sur iPad / Mac.
+                if showTimeline {
+                    HStack(spacing: Spacing.s) {
+                        Text(player.currentTime.asTrackDuration)
+                            .font(Typo.technique).foregroundStyle(.secondary).monospacedDigit()
+                        MiniScrubber(current: player.currentTime, duration: player.duration) { player.seek(to: $0) }
+                        Text("-" + max(player.duration - player.currentTime, 0).asTrackDuration)
+                            .font(Typo.technique).foregroundStyle(.secondary).monospacedDigit()
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
