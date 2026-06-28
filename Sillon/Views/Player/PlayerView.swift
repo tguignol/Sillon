@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 #if os(iOS)
 import AVKit
 #endif
@@ -8,6 +9,7 @@ import AVKit
 struct PlayerView: View {
     @Environment(\.playerController) private var player
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     /// Fermeture personnalisée : utilisée quand le lecteur n'est PAS présenté en feuille/plein écran
     /// (cas macOS, affiché en ligne dans la zone de détail) — `dismiss` n'y ferait rien.
     var onClose: (() -> Void)? = nil
@@ -305,6 +307,14 @@ struct PlayerView: View {
             Button { player.toggleFavoriteOfCurrent() } label: {
                 Image(systemName: track.isFavorite ? "heart.fill" : "heart")
                     .foregroundStyle(track.isFavorite ? Palette.accentCuivre : Palette.texteIvoire)
+            }
+            // Favori AU NIVEAU DE L'ALBUM (distinct du cœur « favori titre »), façon Android.
+            if let album = track.album {
+                Spacer()
+                Button { Favorites.toggle(album, context: context) } label: {
+                    Image(systemName: album.isFavorite ? "square.stack.fill" : "square.stack")
+                        .foregroundStyle(album.isFavorite ? Palette.accentCuivre : Palette.texteIvoire)
+                }
             }
             Spacer()
             Button { player.toggleShuffle() } label: {

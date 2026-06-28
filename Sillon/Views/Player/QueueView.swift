@@ -20,23 +20,35 @@ struct QueuePanel: View {
         }
     }
 
+    /// La file d'attente est-elle IDENTIQUE à l'album en cours (mêmes titres, même ordre) ? Si oui, le
+    /// segment « File d'attente » n'apporte rien → on le masque et on n'affiche que l'album (façon Android).
+    private var sameAsAlbum: Bool {
+        guard let player else { return false }
+        let album = albumTracks.map(\.id)
+        return !album.isEmpty && player.queue.map(\.id) == album
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $mode) {
-                Text(LanguageManager.string("Album")).tag(Mode.album)
-                Text(LanguageManager.string("File d'attente")).tag(Mode.queue)
+            // Bascule visible seulement si la file DIFFÈRE de l'album en cours.
+            if !sameAsAlbum {
+                Picker("", selection: $mode) {
+                    Text(LanguageManager.string("Album")).tag(Mode.album)
+                    Text(LanguageManager.string("File d'attente")).tag(Mode.queue)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, Spacing.l)
+                .padding(.vertical, Spacing.s)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, Spacing.l)
-            .padding(.vertical, Spacing.s)
 
             Group {
-                switch mode {
+                switch sameAsAlbum ? .album : mode {
                 case .album: albumList
                 case .queue: queueList
                 }
             }
         }
+        .onChange(of: sameAsAlbum) { _, same in if same { mode = .album } }
     }
 
     /// Titres de l'album du morceau courant (tap = lecture de l'album à partir du titre).
