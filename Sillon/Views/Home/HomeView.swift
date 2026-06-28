@@ -65,6 +65,7 @@ struct HomeView: View {
             .navigationDestination(for: Album.self) { AlbumDetailView(album: $0) }
             .navigationDestination(for: Artist.self) { ArtistDetailView(artist: $0, providesNavigationDestination: false) }
             .navigationDestination(for: Playlist.self) { PlaylistDetailView(playlist: $0) }
+            .navigationDestination(for: HomeSeeAllView.Kind.self) { HomeSeeAllView(kind: $0) }
             .navigationDestination(for: QuickDestination.self) { destination in
                 switch destination {
                 case .albums:
@@ -99,11 +100,11 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
                 quickActions
 
-                albumCarousel("Albums récents", entries(recentAlbums, limit: 30))
+                albumCarousel("Albums récents", entries(recentAlbums, limit: 30), seeAll: .recents)
 
                 if !activeMostPlayedTracks.isEmpty {
                     let tracks = Array(activeMostPlayedTracks.dedupedTracks(merge: mergeDuplicates).prefix(20))
-                    HomeSection(title: "Titres les plus écoutés") {
+                    HomeSection(title: "Titres les plus écoutés", seeAll: .mostPlayedTracks) {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             Button {
                                 player?.play(queue: tracks, startAt: index)
@@ -116,11 +117,11 @@ struct HomeView: View {
                 }
 
                 if !activeMostPlayedAlbums.isEmpty {
-                    albumCarousel("Les plus écoutés", entries(activeMostPlayedAlbums, limit: 30))
+                    albumCarousel("Les plus écoutés", entries(activeMostPlayedAlbums, limit: 30), seeAll: .mostPlayedAlbums)
                 }
 
                 if !activeFavoriteAlbums.isEmpty {
-                    albumCarousel("Albums préférés", entries(activeFavoriteAlbums, limit: 30))
+                    albumCarousel("Albums préférés", entries(activeFavoriteAlbums, limit: 30), seeAll: .favoriteAlbums)
                 }
 
                 if !rediscover.isEmpty {
@@ -130,12 +131,12 @@ struct HomeView: View {
                 }
 
                 if !activePlayedAlbums.isEmpty {
-                    albumCarousel("Continuer l'écoute", entries(activePlayedAlbums, limit: 5))
+                    albumCarousel("Continuer l'écoute", entries(activePlayedAlbums, limit: 5), seeAll: .playedAlbums)
                 }
 
                 if !activeFavoriteTracks.isEmpty {
                     let tracks = Array(activeFavoriteTracks.dedupedTracks(merge: mergeDuplicates).prefix(20))
-                    HomeSection(title: "Pistes préférées") {
+                    HomeSection(title: "Pistes préférées", seeAll: .favoriteTracks) {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             Button {
                                 player?.play(queue: tracks, startAt: index)
@@ -201,8 +202,9 @@ struct HomeView: View {
     @ViewBuilder
     private func albumCarousel(_ title: LocalizedStringKey,
                                _ entries: [(album: Album, sourceCount: Int)],
+                               seeAll: HomeSeeAllView.Kind? = nil,
                                onEdgeOverscroll: (() -> Void)? = nil) -> some View {
-        HomeSection(title: title, onEdgeOverscroll: onEdgeOverscroll) {
+        HomeSection(title: title, seeAll: seeAll, onEdgeOverscroll: onEdgeOverscroll) {
             ForEach(entries, id: \.album.id) { entry in
                 NavigationLink(value: entry.album) {
                     AlbumCard(album: entry.album, size: albumCardSize, sourceCount: entry.sourceCount)
@@ -261,6 +263,8 @@ struct HomeView: View {
 /// d'observation du défilement pour les autres carrousels).
 private struct HomeSection<Content: View>: View {
     let title: LocalizedStringKey
+    /// Destination « voir tout » (chevron à droite du titre) ; nil ⇒ pas de chevron.
+    var seeAll: HomeSeeAllView.Kind? = nil
     var onEdgeOverscroll: (() -> Void)? = nil
     @ViewBuilder let content: Content
 
@@ -269,10 +273,21 @@ private struct HomeSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            Text(title)
-                .font(Typo.displaySmall)
-                .foregroundStyle(Palette.texteIvoire)
-                .padding(.horizontal, Spacing.l)
+            HStack {
+                Text(title)
+                    .font(Typo.displaySmall)
+                    .foregroundStyle(Palette.texteIvoire)
+                Spacer()
+                if let seeAll {
+                    NavigationLink(value: seeAll) {
+                        Image(systemName: "chevron.right")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, Spacing.l)
 
             row
         }

@@ -63,7 +63,7 @@ struct PlayerView: View {
             VStack(spacing: Spacing.l) {
                 topBar
                 HStack(spacing: Spacing.xl) {
-                    mainVisual(track: track, player: player, maxSide: coverMax)
+                    mainVisual(track: track, player: player, maxSide: coverMax, landscape: true)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     VStack(spacing: Spacing.l) {
                         Spacer(minLength: 0)
@@ -84,7 +84,7 @@ struct PlayerView: View {
                 Spacer(minLength: 0)
                 // Marge sous la pochette : les barres de spectre atteignent presque le bord du cadre ;
                 // on sépare nettement du titre juste dessous (paroles : pas de marge, elles emplissent l'espace).
-                mainVisual(track: track, player: player, maxSide: 344)
+                mainVisual(track: track, player: player, maxSide: 344, landscape: false)
                     .padding(.bottom, showLyrics ? 0 : Spacing.xxl)
                 titles(track: track)
                 progressSection(player: player)
@@ -99,11 +99,24 @@ struct PlayerView: View {
     /// Visuel central : pochette + spectre, ou paroles (à la Apple Music) — le transport reste
     /// accessible à côté/dessous sans fermer les paroles.
     @ViewBuilder
-    private func mainVisual(track: Track, player: PlayerController, maxSide: CGFloat) -> some View {
+    private func mainVisual(track: Track, player: PlayerController, maxSide: CGFloat, landscape: Bool) -> some View {
         if showLyrics {
-            LyricsView(track: track)
+            if landscape {
+                // Écran large : vignette d'album RÉDUITE en haut + paroles dessous (façon Apple Music / Android).
+                VStack(spacing: Spacing.l) {
+                    cover(track)
+                        .frame(width: min(maxSide * 0.5, 240), height: min(maxSide * 0.5, 240))
+                        .clipShape(RoundedRectangle(cornerRadius: Spacing.cardCorner, style: .continuous))
+                    LyricsView(track: track)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
+            } else {
+                LyricsView(track: track)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
+            }
         } else {
             artwork(track: track, player: player, maxSide: maxSide)
         }
