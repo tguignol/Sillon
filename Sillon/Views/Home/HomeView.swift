@@ -15,6 +15,10 @@ struct HomeView: View {
     private var playedAlbums: [Album]
     @Query(filter: #Predicate<Track> { $0.isFavorite }, sort: \Track.favoriteDate, order: .reverse)
     private var favoriteTracks: [Track]
+    @Query(filter: #Predicate<Album> { $0.playCount > 0 }, sort: \Album.playCount, order: .reverse)
+    private var mostPlayedAlbums: [Album]
+    @Query(filter: #Predicate<Track> { $0.playCount > 0 }, sort: \Track.playCount, order: .reverse)
+    private var mostPlayedTracks: [Track]
     @Query(sort: \Playlist.updatedAt, order: .reverse) private var playlists: [Playlist]
 
     /// Sélections aléatoires figées une fois la bibliothèque chargée (cf. `generateDiscoveryIfNeeded`).
@@ -32,6 +36,8 @@ struct HomeView: View {
     private var activeFavoriteAlbums: [Album] { favoriteAlbums.onActiveServers() }
     private var activePlayedAlbums: [Album] { playedAlbums.onActiveServers() }
     private var activeFavoriteTracks: [Track] { favoriteTracks.onActiveServers() }
+    private var activeMostPlayedAlbums: [Album] { mostPlayedAlbums.onActiveServers() }
+    private var activeMostPlayedTracks: [Track] { mostPlayedTracks.onActiveServers() }
 
     /// Déduplique puis borne une liste d'albums pour un carrousel.
     private func entries(_ albums: [Album], limit: Int) -> [(album: Album, sourceCount: Int)] {
@@ -94,6 +100,24 @@ struct HomeView: View {
                 quickActions
 
                 albumCarousel("Albums récents", entries(recentAlbums, limit: 30))
+
+                if !activeMostPlayedTracks.isEmpty {
+                    let tracks = Array(activeMostPlayedTracks.dedupedTracks(merge: mergeDuplicates).prefix(20))
+                    HomeSection(title: "Titres les plus écoutés") {
+                        ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                            Button {
+                                player?.play(queue: tracks, startAt: index)
+                            } label: {
+                                TrackCard(track: track, size: 150)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                if !activeMostPlayedAlbums.isEmpty {
+                    albumCarousel("Les plus écoutés", entries(activeMostPlayedAlbums, limit: 30))
+                }
 
                 if !activeFavoriteAlbums.isEmpty {
                     albumCarousel("Albums préférés", entries(activeFavoriteAlbums, limit: 30))

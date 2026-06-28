@@ -28,6 +28,10 @@ final class Track {
     var isFavorite: Bool = false
     var favoriteDate: Date?
 
+    /// Nombre d'écoutes (incrémenté au démarrage du morceau). Alimente « Titres les plus écoutés »
+    /// sur l'accueil. Valeur par défaut => migration légère SwiftData.
+    var playCount: Int = 0
+
     /// Dénormalisé pour les morceaux de compilations / artistes multiples sur un même album.
     var artistNameSnapshot: String?
 

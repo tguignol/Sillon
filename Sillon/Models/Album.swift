@@ -17,6 +17,10 @@ final class Album {
     /// récemment joués de « Redécouvrir ». nil = jamais lu depuis l'ajout de ce champ.
     var lastPlayedDate: Date?
 
+    /// Nombre d'écoutes de l'album (incrémenté au démarrage d'un de ses morceaux). Alimente
+    /// « Les plus écoutés » sur l'accueil. Valeur par défaut => migration légère SwiftData.
+    var playCount: Int = 0
+
     /// ReplayGain album (LECTURE SEULE) — gain en dB, peak en ratio linéaire. nil = inconnu.
     /// Optionnels => migration légère. Source de repli pour le mode « album » côté lecteur.
     var albumGain: Double?

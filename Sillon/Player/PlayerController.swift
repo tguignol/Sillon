@@ -536,8 +536,12 @@ final class PlayerController {
     /// Tamponne l'album du morceau courant comme « écouté maintenant » (section « Continuer l'écoute »
     /// de l'accueil). Appelé à la lecture explicite et aux transitions gapless/crossfade.
     private func markCurrentAlbumPlayed() {
-        guard let album = currentTrack?.album else { return }
-        album.lastPlayedDate = .now
+        guard let track = currentTrack else { return }
+        track.playCount += 1                 // « Titres les plus écoutés »
+        if let album = track.album {
+            album.lastPlayedDate = .now      // « Continuer l'écoute »
+            album.playCount += 1             // « Les plus écoutés »
+        }
         try? context.save()
     }
 
