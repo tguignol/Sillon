@@ -28,6 +28,16 @@ struct SidebarRootView: View {
                 detailArea
                     .animation(.easeInOut(duration: 0.2), value: showPlayer)
             }
+            // Mini-lecteur ancré au bas de TOUTE la fenêtre (au niveau du split, pas de la section) →
+            // TOUJOURS visible : accueil, bibliothèque ET détail d'album (façon Android, comme en portrait).
+            .safeAreaInset(edge: .bottom) {
+                if hasNowPlaying && !showPlayer {
+                    NowPlayingBar(onTap: { showPlayer = true })
+                        .padding(.vertical, Spacing.s)
+                        .padding(.horizontal, Spacing.m)
+                        .background(.thinMaterial)
+                }
+            }
 
             #if os(iOS)
             // iPad : lecteur en SURIMPRESSION plein écran (façon Android), AU-DESSUS de la barre latérale
@@ -45,30 +55,17 @@ struct SidebarRootView: View {
     }
 
     /// Zone de détail. macOS : le lecteur s'affiche EN LIGNE (barre latérale visible, façon Apple Music).
-    /// iOS (iPad) : toujours la section + mini-lecteur ; le lecteur plein format est en surimpression (cf. ZStack).
+    /// iOS (iPad) : toujours la section ; le lecteur plein format est en surimpression (cf. ZStack).
     @ViewBuilder private var detailArea: some View {
         #if os(macOS)
         if showPlayer, hasNowPlaying {
             PlayerView(onClose: { showPlayer = false })
         } else {
-            sectionWithBar
+            section(selection ?? .accueil)
         }
         #else
-        sectionWithBar
-        #endif
-    }
-
-    /// Section courante + mini-lecteur ancré en bas (tapé → ouvre le lecteur plein format).
-    @ViewBuilder private var sectionWithBar: some View {
         section(selection ?? .accueil)
-            .safeAreaInset(edge: .bottom) {
-                if hasNowPlaying {
-                    NowPlayingBar(onTap: { showPlayer = true })
-                        .padding(.vertical, Spacing.s)
-                        .padding(.horizontal, Spacing.m)
-                        .background(.thinMaterial)
-                }
-            }
+        #endif
     }
 
     @ViewBuilder
