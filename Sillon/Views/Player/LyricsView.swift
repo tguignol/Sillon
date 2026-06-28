@@ -126,6 +126,10 @@ struct LyricsView: View {
         }
         guard !requests.isEmpty else { return }
         do {
+            // Étape Apple recommandée : prépare la session et TÉLÉCHARGE le modèle de langue au besoin
+            // (invite système la 1re fois). Sans elle, `translations(from:)` peut échouer si le couple
+            // de langues n'est pas encore installé — d'où une fenêtre qui s'ouvre puis se referme.
+            try await session.prepareTranslation()
             let responses = try await session.translations(from: requests)
             var map: [Int: String] = [:]
             for response in responses {
