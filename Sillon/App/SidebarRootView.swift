@@ -15,37 +15,60 @@ struct SidebarRootView: View {
     private var hasNowPlaying: Bool { player?.currentTrack != nil }
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selection) {
-                ForEach(SidebarSection.allCases) { section in
-                    Label(section.label, systemImage: section.systemImage)
-                        .tag(section)
+        ZStack {
+            NavigationSplitView {
+                List(selection: $selection) {
+                    ForEach(SidebarSection.allCases) { section in
+                        Label(section.label, systemImage: section.systemImage)
+                            .tag(section)
+                    }
                 }
+                .navigationSplitViewColumnWidth(min: 172, ideal: 196, max: 240)
+            } detail: {
+                detailArea
+                    .animation(.easeInOut(duration: 0.2), value: showPlayer)
             }
-            .navigationSplitViewColumnWidth(min: 172, ideal: 196, max: 240)
-        } detail: {
-            Group {
-                if showPlayer, hasNowPlaying {
-                    // Lecteur en ligne (pas une feuille) : la barre latérale reste visible à côté.
-                    PlayerView(onClose: { showPlayer = false })
-                } else {
-                    section(selection ?? .accueil)
-                        // Mini-lecteur ancré en bas de la zone de détail dès qu'un morceau est en cours ;
-                        // tapé, il déploie le lecteur plein format. `safeAreaInset` décale le contenu au-dessus.
-                        .safeAreaInset(edge: .bottom) {
-                            if hasNowPlaying {
-                                NowPlayingBar(onTap: { showPlayer = true })
-                                    .padding(.vertical, Spacing.s)
-                                    .padding(.horizontal, Spacing.m)
-                                    .background(.thinMaterial)
-                            }
-                        }
-                }
+
+            #if os(iOS)
+            // iPad : lecteur en SURIMPRESSION plein écran (façon Android), AU-DESSUS de la barre latérale
+            // et de la section courante (bibliothèque, détail d'album…). Glisse depuis le bas.
+            if showPlayer, hasNowPlaying {
+                PlayerView(onClose: { showPlayer = false })
+                    .transition(.move(edge: .bottom))
+                    .zIndex(2)
             }
-            .animation(.easeInOut(duration: 0.2), value: showPlayer)
+            #endif
         }
+        .animation(.easeInOut(duration: 0.25), value: showPlayer)
         // Choisir une section dans la barre latérale referme le lecteur et montre cette section.
         .onChange(of: selection) { _, _ in showPlayer = false }
+    }
+
+    /// Zone de détail. macOS : le lecteur s'affiche EN LIGNE (barre latérale visible, façon Apple Music).
+    /// iOS (iPad) : toujours la section + mini-lecteur ; le lecteur plein format est en surimpression (cf. ZStack).
+    @ViewBuilder private var detailArea: some View {
+        #if os(macOS)
+        if showPlayer, hasNowPlaying {
+            PlayerView(onClose: { showPlayer = false })
+        } else {
+            sectionWithBar
+        }
+        #else
+        sectionWithBar
+        #endif
+    }
+
+    /// Section courante + mini-lecteur ancré en bas (tapé → ouvre le lecteur plein format).
+    @ViewBuilder private var sectionWithBar: some View {
+        section(selection ?? .accueil)
+            .safeAreaInset(edge: .bottom) {
+                if hasNowPlaying {
+                    NowPlayingBar(onTap: { showPlayer = true })
+                        .padding(.vertical, Spacing.s)
+                        .padding(.horizontal, Spacing.m)
+                        .background(.thinMaterial)
+                }
+            }
     }
 
     @ViewBuilder
