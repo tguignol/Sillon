@@ -100,6 +100,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Spacing.xxl) {
                 quickActions
 
+                // Ordre aligné sur l'Accueil Android.
                 albumCarousel("Albums récents", entries(recentAlbums, limit: 30), seeAll: .recents)
 
                 if !activeMostPlayedTracks.isEmpty {
@@ -116,22 +117,12 @@ struct HomeView: View {
                     }
                 }
 
+                if !activePlayedAlbums.isEmpty {
+                    albumCarousel("Albums écoutés récemment", entries(activePlayedAlbums, limit: 30), seeAll: .playedAlbums)
+                }
+
                 if !activeMostPlayedAlbums.isEmpty {
                     albumCarousel("Les plus écoutés", entries(activeMostPlayedAlbums, limit: 30), seeAll: .mostPlayedAlbums)
-                }
-
-                if !activeFavoriteAlbums.isEmpty {
-                    albumCarousel("Albums préférés", entries(activeFavoriteAlbums, limit: 30), seeAll: .favoriteAlbums)
-                }
-
-                if !rediscover.isEmpty {
-                    // Tirer le carrousel au-delà de l'un de ses bords (gauche ou droite) re-mélange la
-                    // sélection (comme au démarrage). Réservé à cette section ; les autres restent figées.
-                    albumCarousel("Redécouvrir des albums", rediscover, onEdgeOverscroll: regenerateRediscover)
-                }
-
-                if !activePlayedAlbums.isEmpty {
-                    albumCarousel("Continuer l'écoute", entries(activePlayedAlbums, limit: 5), seeAll: .playedAlbums)
                 }
 
                 if !activeFavoriteTracks.isEmpty {
@@ -148,12 +139,21 @@ struct HomeView: View {
                     }
                 }
 
+                if !activeFavoriteAlbums.isEmpty {
+                    albumCarousel("Albums préférés", entries(activeFavoriteAlbums, limit: 30), seeAll: .favoriteAlbums)
+                }
+
                 if !random.isEmpty {
-                    // Même geste que « Redécouvrir » : overscroll à l'un des bords → nouveau tirage.
+                    // Overscroll à l'un des bords → nouveau tirage.
                     albumCarousel("Albums aléatoires", random, onEdgeOverscroll: regenerateRandom)
                 }
 
+                if !rediscover.isEmpty {
+                    // Tirer le carrousel au-delà de l'un de ses bords re-mélange la sélection (comme au démarrage).
+                    albumCarousel("Redécouvrir des albums", rediscover, onEdgeOverscroll: regenerateRediscover)
+                }
 
+                // (iOS-only) Playlists, en fin de liste.
                 if !playlists.isEmpty {
                     HomeSection(title: "Playlists") {
                         ForEach(playlists.prefix(12)) { playlist in

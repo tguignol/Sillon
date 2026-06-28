@@ -15,7 +15,7 @@ struct HomeSeeAllView: View {
             case .mostPlayedAlbums: return "Les plus écoutés"
             case .favoriteAlbums: return "Albums préférés"
             case .favoriteTracks: return "Pistes préférées"
-            case .playedAlbums: return "Continuer l'écoute"
+            case .playedAlbums: return "Albums écoutés récemment"
             }
         }
         var isTracks: Bool { self == .mostPlayedTracks || self == .favoriteTracks }
